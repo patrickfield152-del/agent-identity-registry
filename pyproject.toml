@@ -3,12 +3,12 @@ requires = ["setuptools>=84.2.1,<85", "wheel>=0.48.0,<0.49"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "attestix"
+name = "skjold"
 version = "0.5.0"
 description = "Attestix - AI agent identity and signed evidence tooling. DID-based identity, W3C Verifiable Credentials, governance evidence, delegation chains, and reputation scoring."
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
     {name = "VIBETENSOR PRIVATE LIMITED", email = "info@vibetensor.com"},
 ]
@@ -79,21 +79,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Transitive pin: web3 pulls aiohttp. Versions <=3.14.2 carry the two
-# earlier advisories. The 3.14.4 floor also closes the subsequent HTTP parser fixes.
-blockchain = ["web3>=7.0.0,<8.0.0", "aiohttp>=3.14.4,<4.0.0", "multidict>=6.9.1,<7.0.0", "urllib3>=2.8.0,<3.0.0"]
 reports = ["weasyprint>=62.0"]
-# Post-quantum signing (FIPS 204 ML-DSA-65 + hybrid Ed25519+ML-DSA). Optional,
-# never required: the default install stays classical Ed25519. dilithium-py is
-# pure-Python (no native build) so the verifier stays portable. See
-# attestix.auth.pqc.
-pqc = ["dilithium-py>=1.0.0,<2.0.0"]
-# v0.4.0 extensibility extras. The default install stays file-storage +
-# in-process Ed25519 signer with no external services (constitution: "Optional,
-# never required"). These extras are only needed for the non-default Repository /
-# Signer backends.
-pg = ["psycopg[binary]>=3.1,<4.0"]
-kms = ["boto3>=1.34,<2.0"]
 # v0.4.0-rc.3: the REST API depends on FastAPI + uvicorn. Kept as an opt-in
 # extra (not a base runtime dep) so callers who only need the MCP server or
 # Python services do not get FastAPI dragged in. The published quickstart at
@@ -138,7 +124,7 @@ Repository = "https://github.com/VibeTensor/attestix"
 Issues = "https://github.com/VibeTensor/attestix/issues"
 
 [project.scripts]
-attestix = "attestix.cli:cli"
+skjold = "attestix.cli:cli"
 
 [tool.setuptools]
 # v0.4.0-rc.2 packaging fix: the wheel ships ONLY the canonical `attestix.*`
@@ -204,13 +190,12 @@ testpaths = ["tests"]
 # whole suite. We do not need logfire for our tests.
 addopts = "-p no:logfire"
 markers = [
-    "live_blockchain: requires funded Base Sepolia wallet (deselect with -m 'not live_blockchain')",
     "perf: performance guard tests (issuance scaling); generous CI thresholds (deselect with -m 'not perf')",
 ]
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 extend-exclude = [
     "build",
     "dist",
@@ -247,7 +232,7 @@ ignore = [
 "demo/**" = ["F401", "E402", "E401"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_unused_ignores = false

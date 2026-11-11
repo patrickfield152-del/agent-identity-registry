@@ -1,15 +1,17 @@
-"""Pluggable persistence for Attestix (v0.4.0 extensibility layer).
+"""Pluggable persistence for skjold (the NEAR port of Attestix).
 
-This package introduces the :class:`Repository` seam so the service layer can
-read/write through an abstraction instead of calling ``config.load_*`` /
-``config.save_*`` directly. The default install resolves to the file-backed
-:class:`FileRepository`, which reproduces v0.3.0 on-disk behavior exactly.
+This package keeps the :class:`Repository` seam introduced in v0.4.0. The
+default install resolves to the file-backed :class:`FileRepository`, which
+reproduces the origin on-disk behavior exactly. When ``SKJOLD_REGISTRY_ID`` is
+configured the default becomes :class:`NearRepository`: the hybrid adapter that
+maps the five chain collections onto the registry contract while keeping
+off-chain documents and signed bodies in the local file store.
 
-Selecting a non-default backend is opt-in via the ``ATTESTIX_STORAGE`` environment
-variable (or the ``config`` argument to :func:`select_repository`); the optional
-Postgres adapter lives behind the ``[pg]`` extra and is imported lazily so a
-default ``pip install`` pulls no extra runtime dependency (FR-005, FR-026,
-SC-010).
+Selecting a non-default backend explicitly is still opt-in via the
+``ATTESTIX_STORAGE`` environment variable (or the ``config`` argument to
+:func:`select_repository`). Imports stay cheap and cycle-safe: the NEAR adapter
+is imported only when the registry environment is present, and
+:class:`NearRepository` itself imports ``attestix.config`` inside methods.
 """
 
 import os
@@ -28,41 +30,57 @@ __all__ = [
     "Repository",
     "FileRepository",
     "MemoryRepository",
+    "NearRepository",
     "DEFAULT_TENANT",
     "select_repository",
     "default_repository",
     "repository",
     "file_repository",
     "memory_repository",
+    "near_repository",
 ]
 
-# Process-wide default instance. The FileRepository is stateless (it resolves
-# config paths lazily on each call) so a single shared instance is safe and keeps
-# the default path allocation-free.
-_DEFAULT = FileRepository()
+# Process-wide default instance. Built lazily on the first call so importing the
+# package never reads the environment or touches disk; the default is
+# near-backed only when SKJOLD_REGISTRY_ID is set at that point.
+_DEFAULT: Optional[Repository] = None
 
 
 def default_repository() -> Repository:
-    """Return the shared default (file-backed) Repository."""
+    """Return the shared default Repository.
+
+    Selection: :class:`NearRepository` when ``SKJOLD_REGISTRY_ID`` is set,
+    otherwise the origin :class:`FileRepository`. The NEAR adapter is imported
+    lazily so a default install (and the origin file/signer contract suite)
+    never loads the contract client machinery.
+    """
+    global _DEFAULT
+    if _DEFAULT is None:
+        registry_id = os.environ.get("SKJOLD_REGISTRY_ID", "").strip()
+        if registry_id:
+            from attestix.storage.near_repository import NearRepository
+
+            _DEFAULT = NearRepository.from_env()
+        else:
+            _DEFAULT = FileRepository()
     return _DEFAULT
 
 
 def select_repository(config: Optional[dict] = None) -> Repository:
-    """Return the configured Repository, defaulting to :class:`FileRepository`.
+    """Return the configured Repository.
 
     Selection precedence:
 
     1. ``config["storage"]`` if a ``config`` mapping is supplied.
     2. The ``ATTESTIX_STORAGE`` environment variable.
-    3. Default: ``"file"`` -> :class:`FileRepository` (v0.3.0 behavior).
+    3. Default: ``"file"`` when no registry is configured; ``"near"`` when
+       ``SKJOLD_REGISTRY_ID`` is set (see :func:`default_repository`).
 
     Recognized values:
 
-    - ``"file"`` (default) -> :class:`FileRepository`.
+    - ``"file"`` -> :class:`FileRepository` (origin behavior).
     - ``"memory"`` -> :class:`MemoryRepository` (volatile; tests / smoke).
-    - ``"postgres"`` / ``"pg"`` -> the optional Postgres adapter (``[pg]`` extra),
-      imported lazily; a clear, actionable error is raised if the extra is not
-      installed.
+    - ``"near"`` -> :class:`NearRepository` (registry contract + local bodies).
     """
     choice = None
     if config:
@@ -70,24 +88,26 @@ def select_repository(config: Optional[dict] = None) -> Repository:
     if choice is None:
         choice = os.environ.get("ATTESTIX_STORAGE")
     if choice is None:
-        choice = "file"
+        return default_repository()
     choice = str(choice).strip().lower()
 
     if choice == "file":
-        return default_repository()
+        return FileRepository()
     if choice == "memory":
         return MemoryRepository()
-    if choice in ("postgres", "pg"):
-        try:
-            from attestix.storage.pg_repository import PgRepository  # noqa: F401
-        except ImportError as exc:  # pragma: no cover - exercised only with extra
-            raise ImportError(
-                "ATTESTIX_STORAGE=postgres requires the optional 'pg' extra. "
-                "Install it with: pip install 'attestix[pg]'"
-            ) from exc
-        return PgRepository(config or {})
+    if choice == "near":
+        from attestix.storage.near_repository import NearRepository
+
+        return NearRepository.from_env()
 
     raise ValueError(
         f"Unknown ATTESTIX_STORAGE value {choice!r}. "
-        "Expected one of: file, memory, postgres."
+        "Expected one of: file, memory, near."
     )
+
+
+# Imported after the lazy selector definitions: the module itself is
+# import-light (no config import at module scope), so this keeps
+# `attestix.storage.NearRepository` available without a cycle.
+from attestix.storage import near_repository  # noqa: E402
+from attestix.storage.near_repository import NearRepository  # noqa: E402

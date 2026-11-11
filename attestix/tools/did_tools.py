@@ -8,12 +8,12 @@ def register(mcp):
 
     @mcp.tool()
     async def resolve_did(did: str) -> str:
-        """Resolve any DID to its DID Document.
+        """Resolve a DID to its DID Document.
 
-        Supports did:key (local), did:web (HTTP), and others via Universal Resolver.
+        Supports did:key (local Ed25519) and did:near (on-chain account keys).
 
         Args:
-            did: The DID to resolve (e.g., did:key:z6Mk..., did:web:example.com).
+            did: The DID to resolve (e.g., did:near:agent1.registry.skjold.testnet).
         """
         from attestix.services.cache import get_service
         from attestix.services.did_service import DIDService
@@ -24,9 +24,9 @@ def register(mcp):
 
     @mcp.tool()
     async def create_did_key() -> str:
-        """Generate an ephemeral did:key identity with an Ed25519 keypair.
+        """Create a named did:near agent sub-account with a fresh Ed25519 keypair.
 
-        Returns the DID, DID Document, and keypair (store private key securely).
+        Returns the DID, DID Document, account id and the one-time secret key.
         """
         from attestix.services.cache import get_service
         from attestix.services.did_service import DIDService
@@ -37,13 +37,14 @@ def register(mcp):
 
     @mcp.tool()
     async def create_did_web(domain: str, path: str = "") -> str:
-        """Generate a did:web DID Document for self-hosting.
+        """Deprecated: did:web hosting was removed in the NEAR port.
 
-        You must host the returned document at the specified URL for the DID to be resolvable.
+        Returns the compatibility response with a did:near redirect; it never
+        produces a hosting URL.
 
         Args:
-            domain: The domain name (e.g., vibetensor.com).
-            path: Optional path segment (e.g., agents/mybot).
+            domain: Retained for tool-surface compatibility.
+            path: Retained for tool-surface compatibility.
         """
         from attestix.services.cache import get_service
         from attestix.services.did_service import DIDService

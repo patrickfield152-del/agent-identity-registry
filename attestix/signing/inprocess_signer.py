@@ -51,7 +51,15 @@ class InProcessSigner(Signer):
         elif private_key is None and did is None:
             # Fail-loud key loading is delegated to auth.crypto; any
             # SigningKeyLoadError from an unreadable existing key propagates.
-            self._private_key, self._did = load_or_create_signing_key()
+            self._private_key, loaded_did = load_or_create_signing_key()
+            # NEAR port: the loaded key MUST be the dedicated issuer account's
+            # single FullAccess key. When that account is configured, the DID
+            # is did:near:<issuer> instead of the origin did:key; signing bytes
+            # are unchanged. With no issuer configuration (local tests) the
+            # origin did:key identity is preserved.
+            from attestix import config
+
+            self._did = config.issuer_did() or loaded_did
         else:
             raise ValueError(
                 "InProcessSigner requires either both 'private_key' and 'did' "

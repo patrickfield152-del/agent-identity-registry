@@ -273,3 +273,29 @@ pub struct AnchorData {
     pub block_height: u64,
     pub block_timestamp_ns: u64,
 }
+
+/// An agent's current reputation, decayed to the query timestamp.
+///
+/// `category_breakdown` holds `(category, score, count)` triples computed over the
+/// bounded recent window; the authoritative score comes from the decayed aggregate.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReputationView {
+    pub agent: AccountId,
+    pub trust_score: f64,
+    pub total_interactions: u32,
+    pub category_breakdown: Vec<(String, f64, u32)>,
+    pub last_interaction_ns: u64,
+}
+
+/// One row of `query_reputation`: the same fields as [`ReputationView`], minus the
+/// per-category detail that callers can fetch individually.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReputationSummary {
+    pub agent: AccountId,
+    pub trust_score: f64,
+    pub total_interactions: u32,
+    pub category_breakdown: Vec<(String, f64, u32)>,
+    pub last_interaction_ns: u64,
+}

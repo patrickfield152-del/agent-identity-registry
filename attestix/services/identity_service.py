@@ -8,6 +8,7 @@ from attestix.config import storage_transactional
 
 import hashlib
 import uuid
+import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -101,6 +102,19 @@ class IdentityService:
             raise ValueError("display_name contains disallowed control characters")
         display_name = stripped
 
+        repository = self._near_repository()
+        if repository is not None:
+            return self._create_identity_near(
+                repository=repository,
+                display_name=display_name,
+                source_protocol=source_protocol,
+                identity_token=identity_token,
+                capabilities=capabilities or [],
+                description=description,
+                issuer_name=issuer_name,
+                expiry_days=expiry_days,
+            )
+
         agent_id = f"attestix:{uuid.uuid4().hex[:16]}"
         now = datetime.now(timezone.utc)
         exp_days = expiry_days if expiry_days is not None else DEFAULT_EXPIRY_DAYS
@@ -158,6 +172,120 @@ class IdentityService:
         )
 
         return uait
+
+    def _near_repository(self):
+        """Return the default Repository when it is NEAR-backed, else None."""
+        from attestix.storage import default_repository
+
+        repository = default_repository()
+        return repository if getattr(repository, "chain_enabled", False) else None
+
+    @staticmethod
+    def _near_prefix(display_name: str) -> str:
+        """Derive a contract-valid 1-32 char ``[a-z0-9-_]`` sub-account prefix."""
+        slug = re.sub(r"[^a-z0-9]+", "-", display_name.lower()).strip("-")[:20]
+        if not slug:
+            slug = "agent"
+        return f"{slug}-{uuid.uuid4().hex[:8]}"
+
+    def _create_identity_near(
+        self,
+        *,
+        repository,
+        display_name: str,
+        source_protocol: str,
+        identity_token: str,
+        capabilities: List[str],
+        description: str,
+        issuer_name: str,
+        expiry_days: Optional[int],
+    ) -> dict:
+        """Register one agent sub-account and store its signed UAIT body."""
+        from attestix.signing.near_signer import generate_near_keypair, uait_digest
+
+        registry_id = getattr(repository, "registry_id", None)
+        if not registry_id:
+            raise RuntimeError(
+                "NearRepository has no registry account id (SKJOLD_REGISTRY_ID)."
+            )
+        _private_key, public_key_wire, secret_key_wire = generate_near_keypair()
+        prefix = self._near_prefix(display_name)
+        agent_id = f"{prefix}.{registry_id}"
+
+        now = datetime.now(timezone.utc)
+        exp_days = expiry_days if expiry_days is not None else DEFAULT_EXPIRY_DAYS
+        expires_at = (now + timedelta(days=exp_days)).isoformat()
+        token_info = {}
+        if identity_token:
+            token_info = extract_identity_from_token(identity_token)
+
+        uait = {
+            "version": UAIT_VERSION,
+            "agent_id": agent_id,
+            "agent": agent_id,
+            "did": self._server_did,
+            "display_name": display_name,
+            "description": description,
+            "source_protocol": source_protocol,
+            "identity_token": self._mask_token(identity_token),
+            "token_info": token_info,
+            "capabilities": capabilities,
+            "issuer": {
+                "name": issuer_name or "self",
+                "did": self._server_did,
+            },
+            "created_at": now.isoformat(),
+            "expires_at": expires_at,
+            "revoked": False,
+            "revocation_reason": None,
+            "reputation_score": None,
+            "eu_compliance": None,
+            "signature": None,
+        }
+        signable = self._signable_payload(uait)
+        uait["signature"] = self._signer.sign(signable)
+        digest = uait_digest(uait, self.MUTABLE_FIELDS)
+        expires_dt = datetime.fromisoformat(expires_at)
+
+        created = repository.create(
+            "identities",
+            {
+                "agent_id": agent_id,
+                "prefix": prefix,
+                "full_access_key": public_key_wire,
+                "uait_digest": digest,
+                "display_name": display_name,
+                "description": description,
+                "source_protocol": source_protocol,
+                "issuer_name": issuer_name or "self",
+                "issuer_did": self._server_did,
+                "capabilities": capabilities,
+                "expires_at_ns": int(expires_dt.timestamp() * 1_000_000_000),
+                "uait": uait,
+            },
+            id_field="agent_id",
+        )
+
+        safe_emit(
+            self._emitter,
+            action="identity.create",
+            target_id=agent_id,
+            target_collection="identities",
+            actor=self._server_did,
+            tenant_id=self._tenant_id,
+            after={"agent_id": agent_id, "source_protocol": source_protocol},
+        )
+
+        return {
+            **uait,
+            "account_id": agent_id,
+            "full_access_key": public_key_wire,
+            "secret_key": secret_key_wire,
+            "uait_digest": created.get("uait_digest"),
+            "status": created.get("status", "pending"),
+            "tx_hash": created.get("tx_hash"),
+            "tenant_id": DEFAULT_TENANT,
+        }
 
     def get_identity(self, agent_id: str) -> Optional[dict]:
         """Get a single UAIT by agent_id."""
@@ -322,6 +450,31 @@ class IdentityService:
                                      agent_id=agent_id)
         else:
             checks["signature_valid"] = False
+
+        # NEAR path: AND the local checks with the registry state. A pending
+        # create_agent (asynchronous callback) is not yet chain-valid.
+        repository = self._near_repository()
+        if repository is not None:
+            try:
+                chain_record = repository.get(
+                    "identities", agent_id, id_field="agent_id"
+                )
+            except Exception as e:
+                chain_record = None
+                log_and_format_error(
+                    "verify_identity", e, ErrorCategory.STORAGE, agent_id=agent_id
+                )
+            chain_confirmed = (
+                chain_record is not None
+                and chain_record.get("chain_status") != "pending"
+            )
+            checks["on_chain"] = chain_confirmed
+            if chain_record is not None:
+                checks["not_revoked"] = checks.get("not_revoked", True) and not (
+                    chain_record.get("revoked", False)
+                )
+            else:
+                checks["not_revoked"] = False
 
         valid = all(v for v in checks.values() if isinstance(v, bool))
         return {

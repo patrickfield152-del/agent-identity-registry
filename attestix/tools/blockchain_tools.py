@@ -1,10 +1,10 @@
-"""Blockchain anchoring MCP tools for Attestix (6 tools).
+"""Registry anchoring MCP tools for skjold (6 tools).
 
-Anchors off-chain artifacts (identities, credentials, audit batches) to
-Base L2 via Ethereum Attestation Service (EAS) for tamper-proof verification.
-
-Optional: all tools gracefully degrade if EVM_PRIVATE_KEY is not configured
-or web3 is not installed.
+Anchors off-chain artifacts (identity documents, credential digests, audit
+batches, declarations) in the skjold registry on NEAR. Every tool returns a
+clear error when ``SKJOLD_REGISTRY_ID`` is not configured; nothing is reported
+as on-chain evidence without a contract view or a client-captured transaction
+hash.
 """
 
 import json
@@ -17,48 +17,39 @@ def _validate_required(params: dict) -> str:
     return ""
 
 
+def _blockchain_service():
+    from attestix.services.blockchain_service import BlockchainService
+    from attestix.services.cache import get_service
+
+    return get_service(BlockchainService)
+
+
 def register(mcp):
-    """Register blockchain anchoring tools with the MCP server."""
+    """Register registry anchoring tools with the MCP server."""
 
     @mcp.tool()
     async def anchor_identity(agent_id: str) -> str:
-        """Anchor an agent identity (UAIT) hash to Base L2 via EAS.
+        """Anchor an agent identity (UAIT) digest in the skjold registry.
 
-        Computes SHA-256 of the full identity record and submits an
-        on-chain attestation. Returns transaction hash and explorer URL.
+        Computes the canonical SHA-256 of the identity record and anchors it as
+        a typed ``Identity`` artifact with the agent as ``subject_account``.
 
         Args:
-            agent_id: The Attestix agent ID (e.g., attestix:abc123...).
+            agent_id: The agent account id (e.g., agent1.registry.skjold.testnet).
         """
         err = _validate_required({"agent_id": agent_id})
         if err:
             return err
 
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
-        from attestix.services.identity_service import IdentityService
-
-        id_svc = get_service(IdentityService)
-        identity = id_svc.get_identity(agent_id)
-        if identity is None:
-            return json.dumps({"error": f"Identity {agent_id} not found"})
-
-        bc_svc = get_service(BlockchainService)
-        artifact_hash = bc_svc.hash_artifact(identity)
-
-        result = bc_svc.anchor_artifact(
-            artifact_hash=artifact_hash,
-            artifact_type="identity",
-            artifact_id=agent_id,
-        )
+        result = _blockchain_service().anchor_identity(agent_id)
         return json.dumps(result, indent=2, default=str)
 
     @mcp.tool()
     async def anchor_credential(credential_id: str) -> str:
-        """Anchor a Verifiable Credential hash to Base L2 via EAS.
+        """Anchor a Verifiable Credential under the ``skjold-vc-digest/v1`` profile.
 
-        Computes SHA-256 of the full VC and submits an on-chain attestation.
-        Returns transaction hash and explorer URL.
+        The digest is Base64(SHA-256 of the canonical credential minus ``proof``
+        and ``credentialStatus``); it is not the stock did:near ProofType cid.
 
         Args:
             credential_id: The credential URN (e.g., urn:uuid:...).
@@ -67,23 +58,7 @@ def register(mcp):
         if err:
             return err
 
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
-        from attestix.services.credential_service import CredentialService
-
-        cred_svc = get_service(CredentialService)
-        credential = cred_svc.get_credential(credential_id)
-        if credential is None:
-            return json.dumps({"error": f"Credential {credential_id} not found"})
-
-        bc_svc = get_service(BlockchainService)
-        artifact_hash = bc_svc.hash_artifact(credential)
-
-        result = bc_svc.anchor_artifact(
-            artifact_hash=artifact_hash,
-            artifact_type="credential",
-            artifact_id=credential_id,
-        )
+        result = _blockchain_service().anchor_credential(credential_id)
         return json.dumps(result, indent=2, default=str)
 
     @mcp.tool()
@@ -91,53 +66,53 @@ def register(mcp):
         artifact_id: str = "",
         artifact_hash: str = "",
     ) -> str:
-        """Verify an on-chain anchor for an artifact.
+        """Verify a registry anchor for an artifact digest.
 
-        Provide either artifact_id (to look up and hash the artifact) or
-        artifact_hash (direct SHA-256 hex) to check against on-chain records.
+        Provide either artifact_id (to look up and digest the artifact) or
+        artifact_hash (32-byte Base64 or 64-char hex) to read ``get_anchor``.
 
         Args:
-            artifact_id: The artifact ID (agent ID or credential URN). Will be looked up and hashed.
-            artifact_hash: Direct SHA-256 hex hash to verify. Use if you already have the hash.
+            artifact_id: The artifact ID (agent account or credential URN).
+            artifact_hash: Direct digest (Base64 or hex) to verify.
         """
         if not artifact_id and not artifact_hash:
             return json.dumps({"error": "Provide either artifact_id or artifact_hash"})
 
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
+        svc = _blockchain_service()
+        digest = artifact_hash
 
-        bc_svc = get_service(BlockchainService)
+        if artifact_id and not digest:
+            from attestix.services.cache import get_service
+            from attestix.services.identity_service import IdentityService
 
-        if artifact_id and not artifact_hash:
-            # Try to resolve artifact_id to a hash
-            artifact = None
-            if artifact_id.startswith("attestix:"):
-                from attestix.services.identity_service import IdentityService
-                id_svc = get_service(IdentityService)
-                artifact = id_svc.get_identity(artifact_id)
+            artifact = get_service(IdentityService).get_identity(artifact_id)
+            if artifact is not None:
+                digest = svc.hash_artifact(artifact)
             elif artifact_id.startswith("urn:uuid:"):
+                from attestix.signing.near_signer import (
+                    digest_to_base64,
+                    vc_digest,
+                )
                 from attestix.services.credential_service import CredentialService
-                cred_svc = get_service(CredentialService)
-                artifact = cred_svc.get_credential(artifact_id)
 
-            if artifact:
-                artifact_hash = bc_svc.hash_artifact(artifact)
-            else:
-                # Fall back: search anchors.json by artifact_id
-                from attestix.config import load_anchors
-                data = load_anchors()
-                matches = [
-                    a for a in data["anchors"]
-                    if a.get("artifact_id") == artifact_id
-                ]
-                if matches:
-                    artifact_hash = matches[0]["artifact_hash"]
-                else:
+                credential = get_service(CredentialService).get_credential(artifact_id)
+                if credential is not None:
+                    digest = digest_to_base64(vc_digest(credential))
+            if not digest:
+                try:
+                    matches = svc.repository.list(
+                        "anchors", filters={"artifact_id": artifact_id}
+                    )
+                    if matches:
+                        digest = matches[0].get("artifact_digest")
+                except Exception:
+                    matches = []
+                if not digest:
                     return json.dumps({
-                        "error": f"Cannot resolve artifact_id '{artifact_id}' to a hash"
+                        "error": f"Cannot resolve artifact_id '{artifact_id}' to a digest"
                     })
 
-        result = bc_svc.verify_anchor(artifact_hash)
+        result = svc.verify_anchor(digest)
         return json.dumps(result, indent=2, default=str)
 
     @mcp.tool()
@@ -146,26 +121,21 @@ def register(mcp):
         start_date: str = "",
         end_date: str = "",
     ) -> str:
-        """Anchor a batch of audit log entries as a Merkle root to Base L2.
+        """Anchor the Merkle root of an agent's audit log entries.
 
-        Computes a Merkle tree of all audit log entries for the agent in the
-        given date range and anchors the root hash on-chain. This provides
-        tamper-evident proof for Article 12 audit trails.
+        Computes a Merkle tree of audit log entries in the given range and
+        anchors the root as a typed ``AuditBatch`` artifact.
 
         Args:
-            agent_id: The Attestix agent ID.
-            start_date: ISO date for start of range (e.g., 2026-01-01T00:00:00). Empty = all.
+            agent_id: The agent account id.
+            start_date: ISO date for start of range. Empty = all.
             end_date: ISO date for end of range. Empty = all.
         """
         err = _validate_required({"agent_id": agent_id})
         if err:
             return err
 
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
-
-        bc_svc = get_service(BlockchainService)
-        result = bc_svc.anchor_audit_batch(
+        result = _blockchain_service().anchor_audit_batch(
             agent_id=agent_id,
             start_date=start_date or None,
             end_date=end_date or None,
@@ -174,38 +144,28 @@ def register(mcp):
 
     @mcp.tool()
     async def get_anchor_status(agent_id: str) -> str:
-        """Get all on-chain anchors for an agent, grouped by type.
-
-        Shows identity anchors, credential anchors, and audit batch anchors
-        with transaction hashes, explorer URLs, and timestamps.
+        """Get the flat typed anchor list recorded for an agent.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The agent account id.
         """
         err = _validate_required({"agent_id": agent_id})
         if err:
             return err
 
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
-
-        bc_svc = get_service(BlockchainService)
-        result = bc_svc.get_anchor_status(agent_id)
+        result = _blockchain_service().get_anchor_status(agent_id)
         return json.dumps(result, indent=2, default=str)
 
     @mcp.tool()
     async def estimate_anchor_cost(artifact_type: str = "identity") -> str:
-        """Estimate gas cost for an anchoring transaction on Base L2.
-
-        Shows current gas price, wallet balance, estimated cost in ETH,
-        and whether the wallet has sufficient funds.
+        """Estimate the storage deposit for an ``anchor_artifact`` call.
 
         Args:
-            artifact_type: Type of artifact to estimate for (identity, credential, declaration, audit_batch).
+            artifact_type: One of identity, credential, declaration, audit_batch.
         """
-        from attestix.services.cache import get_service
-        from attestix.services.blockchain_service import BlockchainService
-
-        bc_svc = get_service(BlockchainService)
-        result = bc_svc.estimate_anchor_cost(artifact_type)
+        result = _blockchain_service().estimate_anchor_cost(
+            artifact_type,
+            artifact_id_len=64,
+            has_subject=artifact_type.strip().lower() == "identity",
+        )
         return json.dumps(result, indent=2, default=str)

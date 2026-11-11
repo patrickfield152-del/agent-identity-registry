@@ -1,607 +1,286 @@
-"""Blockchain anchoring service for Attestix.
+"""NEAR registry anchoring service for skjold.
 
-Anchors cryptographic hashes of off-chain artifacts (UAITs, VCs, audit log
-batches, compliance declarations) to Base L2 via Ethereum Attestation Service.
+Anchors artifact digests (UAITs, credential digests, audit Merkle roots,
+compliance declarations) in the skjold registry contract. There is no EVM,
+Ethereum attestation, schema UIDs and EVM keys are absent from this port.
 
-Optional: works only when EVM_PRIVATE_KEY is set in .env.
+Semantics:
+
+* anchors are ``AnchorRecord`` values on-chain (typed artifact, explicit
+  ``subject_account``, ``anchored_by``, block height/timestamp). The transaction
+  hash is captured **client-side** by the transaction transport; the contract
+  itself has no tx hash.
+* re-anchoring an identical digest is idempotent: the contract keeps one
+  record, so callers always see ``anchor_count == 1``.
+* credential anchoring uses the labelled ``skjold-vc-digest/v1`` profile
+  (``Base64(sha256(canonicalize_json(vc - proof - credentialStatus)))``), not
+  the stock did:near ProofType cid.
+* anchoring requires the NEAR registry to be configured. Without it the
+  methods return a clear error; nothing is recorded locally as if it were
+  on-chain.
+
+The local audit emitter stays: contract events and the local hash chain are two
+parallel trails (P0 §3.5).
 """
 
-from attestix.config import storage_transaction, storage_transactional
+from __future__ import annotations
 
 import hashlib
-import json
-import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import Optional
 
 from attestix.audit import AuditEventEmitter, resolve_emitter, safe_emit
-from attestix.auth.crypto import load_or_create_signing_key, _normalize_for_signing
 from attestix.config import (
     _get_env,
     load_anchors,
-    save_anchors,
-    BLOCKCHAIN_CONFIG_FILE,
+    load_credentials,
+    load_identities,
+    load_provenance,
 )
 from attestix.errors import ErrorCategory, log_and_format_error
+from attestix.signing.near_signer import (
+    VC_DIGEST_PROFILE,
+    digest_to_base64,
+    digest_to_hex,
+    vc_digest,
+)
 from attestix.storage.repository import DEFAULT_TENANT
 
 
+#: Origin artifact-type names accepted by the tools.
 VALID_ARTIFACT_TYPES = {"identity", "credential", "declaration", "audit_batch"}
 
-NETWORKS = {
-    "sepolia": {
-        "rpc_url": "https://sepolia.base.org",
-        "chain_id": 84532,
-        "explorer": "https://sepolia.basescan.org",
-    },
-    "mainnet": {
-        "rpc_url": "https://mainnet.base.org",
-        "chain_id": 8453,
-        "explorer": "https://basescan.org",
-    },
-}
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class BlockchainService:
-    """Manages EAS attestation anchoring on Base L2."""
+    """Manages skjold registry artifact anchoring."""
 
     def __init__(
         self,
         emitter: Optional[AuditEventEmitter] = None,
         tenant_id: str = DEFAULT_TENANT,
+        repository=None,
     ):
-        self._private_key_ed, self._server_did = load_or_create_signing_key()
-        self._w3 = None
-        self._account = None
-        self._eas_contract = None
-        self._schema_registry = None
-        self._schema_uid = None
-        self._network = _get_env("BASE_NETWORK", "sepolia")
-        self._configured = False
-        self._init_error = None
-        self._tx_lock = threading.Lock()
+        # Resolve lazily so importing the service never opens storage.
+        self._repo = repository if repository is not None else None
+        self._network = (_get_env("NEAR_NETWORK", "testnet") or "testnet").strip().lower()
         # v0.4.0 (T033/T034): per-service audit emitter + tenant context (side
         # channel; tenant defaults to "default" for v0.3.0 parity).
         self._emitter = resolve_emitter(emitter)
         self._tenant_id = tenant_id
-        self._try_init()
 
-    def _try_init(self):
-        """Attempt to initialize web3 connection. Fail gracefully."""
-        evm_key = _get_env("EVM_PRIVATE_KEY")
-        if not evm_key:
-            self._init_error = (
-                "Blockchain anchoring not configured. "
-                "Set EVM_PRIVATE_KEY in .env to enable on-chain anchoring. "
-                "Generate a wallet: python -c \"from eth_account import Account; "
-                "a = Account.create(); print(a.key.hex())\" "
-                "Fund on Base Sepolia: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet"
-            )
-            return
+    # --- wiring -----------------------------------------------------------
 
-        try:
-            from web3 import Web3
-            from eth_account import Account
+    @property
+    def repository(self):
+        if self._repo is None:
+            from attestix.storage import default_repository
 
-            network = NETWORKS.get(self._network)
-            if not network:
-                self._init_error = (
-                    f"Unknown network '{self._network}'. Use 'sepolia' or 'mainnet'."
-                )
-                return
-
-            rpc_url = _get_env("BASE_RPC_URL", network["rpc_url"])
-            self._w3 = Web3(Web3.HTTPProvider(rpc_url))
-
-            if not self._w3.is_connected():
-                self._init_error = (
-                    f"Cannot connect to {rpc_url}. Check network connectivity."
-                )
-                return
-
-            self._account = Account.from_key(evm_key)
-
-            from attestix.blockchain.abi import (
-                EAS_ABI, SCHEMA_REGISTRY_ABI,
-                EAS_CONTRACT_ADDRESS, SCHEMA_REGISTRY_ADDRESS,
-            )
-
-            self._eas_contract = self._w3.eth.contract(
-                address=Web3.to_checksum_address(EAS_CONTRACT_ADDRESS),
-                abi=EAS_ABI,
-            )
-            self._schema_registry = self._w3.eth.contract(
-                address=Web3.to_checksum_address(SCHEMA_REGISTRY_ADDRESS),
-                abi=SCHEMA_REGISTRY_ABI,
-            )
-
-            self._schema_uid = self._load_schema_uid()
-            self._configured = True
-
-        except ImportError:
-            self._init_error = (
-                "web3 package not installed. Run: pip install web3>=7.0.0"
-            )
-        except Exception as e:
-            self._init_error = log_and_format_error(
-                "BlockchainService._try_init", e, ErrorCategory.BLOCKCHAIN,
-            )
+            self._repo = default_repository()
+        return self._repo
 
     @property
     def is_configured(self) -> bool:
-        return self._configured
+        """True when the default Repository is the NEAR registry adapter."""
+        return bool(getattr(self.repository, "chain_enabled", False))
 
     @property
-    def wallet_address(self) -> Optional[str]:
-        return self._account.address if self._account else None
+    def registry_id(self) -> Optional[str]:
+        return getattr(self.repository, "registry_id", None)
 
     def _require_configured(self) -> Optional[str]:
-        """Return error message if not configured, else None."""
-        if not self._configured:
-            return self._init_error or "Blockchain not configured"
+        """Return an error message when chain anchoring is unavailable."""
+        if not self.is_configured:
+            return (
+                "NEAR registry anchoring is not configured. Set "
+                "SKJOLD_REGISTRY_ID (and SKJOLD_OPERATOR_KEY for signed writes) "
+                "to enable on-chain anchors."
+            )
         return None
 
-    # --- Schema Management ---
-
-    @staticmethod
-    def compute_schema_uid(
-        schema: str,
-        resolver: str = "0x0000000000000000000000000000000000000000",
-        revocable: bool = True,
-    ) -> str:
-        """Compute the canonical EAS schema UID.
-
-        Mirrors SchemaRegistry._getUID in the EAS contracts:
-            keccak256(abi.encodePacked(schema, resolver, revocable))
-
-        Reference:
-        https://github.com/ethereum-attestation-service/eas-contracts/blob/master/contracts/SchemaRegistry.sol
-
-        Returns a 0x-prefixed 66-character hex string.
-        """
-        from web3 import Web3
-        from eth_abi.packed import encode_packed
-
-        resolver_checksum = Web3.to_checksum_address(resolver)
-        packed = encode_packed(
-            ["string", "address", "bool"],
-            [schema, resolver_checksum, bool(revocable)],
-        )
-        digest_hex = Web3.keccak(packed).hex()
-        if not digest_hex.startswith("0x"):
-            digest_hex = "0x" + digest_hex
-        return digest_hex
-
-    def _load_schema_uid(self) -> Optional[str]:
-        """Load cached schema UID from blockchain config file."""
-        try:
-            if BLOCKCHAIN_CONFIG_FILE.exists():
-                with open(BLOCKCHAIN_CONFIG_FILE, "r") as f:
-                    config = json.load(f)
-                return config.get(f"schema_uid_{self._network}")
-        except (OSError, json.JSONDecodeError, KeyError):
-            pass  # Config file missing or corrupt, return None
-        return None
-
-    @storage_transactional
-    def _save_schema_uid(self, schema_uid: str):
-        """Cache schema UID to blockchain config file."""
-        config = {}
-        try:
-            if BLOCKCHAIN_CONFIG_FILE.exists():
-                with open(BLOCKCHAIN_CONFIG_FILE, "r") as f:
-                    config = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            pass  # Start fresh if config is unreadable
-        config[f"schema_uid_{self._network}"] = schema_uid
-        with open(BLOCKCHAIN_CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=2)
-
-    def _ensure_schema_registered(self) -> Tuple[bool, str]:
-        """Register the Attestix EAS schema if not already registered.
-
-        Returns (success, schema_uid_hex_or_error_message).
-        """
-        if self._schema_uid:
-            return True, self._schema_uid
-
-        try:
-            from attestix.blockchain.abi import ATTESTIX_SCHEMA
-            from web3 import Web3
-
-            zero_addr = Web3.to_checksum_address(
-                "0x0000000000000000000000000000000000000000"
-            )
-            revocable = True
-
-            # EAS schema UIDs are deterministic:
-            #   keccak256(abi.encodePacked(schema, resolver, revocable))
-            # Derive the UID offline so we can (a) skip registration if the
-            # schema already exists on-chain and (b) use it as a safe fallback
-            # if log parsing ever fails. Hashing the schema string alone
-            # produces the WRONG UID and breaks on-chain verification.
-            canonical_uid = self.compute_schema_uid(
-                ATTESTIX_SCHEMA, zero_addr, revocable
-            )
-
-            # If already registered on-chain, reuse without spending gas.
-            try:
-                uid_bytes = bytes.fromhex(canonical_uid[2:])
-                existing = self._schema_registry.functions.getSchema(
-                    uid_bytes
-                ).call()
-                existing_uid = existing[0] if existing else b"\x00" * 32
-                if isinstance(existing_uid, (bytes, bytearray)) and any(
-                    existing_uid
-                ):
-                    self._schema_uid = canonical_uid
-                    self._save_schema_uid(canonical_uid)
-                    return True, canonical_uid
-            except Exception:
-                # getSchema lookup failed; fall through and register.
-                pass
-
-            with self._tx_lock:
-                tx = self._schema_registry.functions.register(
-                    ATTESTIX_SCHEMA,
-                    zero_addr,
-                    revocable,
-                ).build_transaction({
-                    "from": self._account.address,
-                    "nonce": self._w3.eth.get_transaction_count(
-                        self._account.address, "pending"
-                    ),
-                    "gas": 200000,
-                    "maxFeePerGas": self._w3.eth.gas_price * 2,
-                    "maxPriorityFeePerGas": self._w3.eth.max_priority_fee,
-                    "chainId": NETWORKS[self._network]["chain_id"],
-                })
-
-                signed = self._account.sign_transaction(tx)
-                tx_hash = self._w3.eth.send_raw_transaction(
-                    signed.raw_transaction
-                )
-            receipt = self._w3.eth.wait_for_transaction_receipt(
-                tx_hash, timeout=60
-            )
-
-            if receipt["status"] != 1:
-                return False, "Schema registration transaction reverted"
-
-            # Extract schema UID from Registered(bytes32 indexed uid, ...):
-            # topics[0] is the event signature, topics[1] is the indexed uid.
-            schema_uid_hex = None
-            for log in receipt.get("logs", []):
-                topics = log.get("topics", [])
-                if len(topics) > 1:
-                    topic = topics[1]
-                    if isinstance(topic, (bytes, bytearray)):
-                        topic_hex = bytes(topic).hex()
-                    else:
-                        topic_hex = str(topic).replace("0x", "")
-                    if topic_hex and int(topic_hex, 16) != 0:
-                        schema_uid_hex = (
-                            topic_hex if topic_hex.startswith("0x")
-                            else "0x" + topic_hex
-                        )
-                        break
-
-            if not schema_uid_hex:
-                # Safe fallback: canonical UID matches the on-chain UID by
-                # construction. Never hash the schema text alone.
-                schema_uid_hex = canonical_uid
-
-            self._schema_uid = schema_uid_hex
-            self._save_schema_uid(schema_uid_hex)
-
-            return True, schema_uid_hex
-        except Exception as e:
-            msg = log_and_format_error(
-                "_ensure_schema_registered", e, ErrorCategory.BLOCKCHAIN,
-            )
-            return False, msg
-
-    # --- Event Decoding ---
-
-    def _extract_attestation_uid(self, receipt) -> str:
-        """Decode the Attested event from a tx receipt and return the UID.
-
-        Uses ``contract.events.Attested().process_log(log)`` (web3.py's ABI
-        decoder) so we do not rely on fragile byte offsets. Falls back to
-        manual decoding when the Attested event is not on the ABI or the log
-        is not parseable. Returns "unknown" if no Attested log is present.
-        """
-        logs = receipt.get("logs") if isinstance(receipt, dict) else getattr(
-            receipt, "logs", None
-        )
-        if not logs:
-            return "unknown"
-
-        # Prefer structured ABI decoding when the event is on the ABI.
-        attested_event = None
-        try:
-            attested_event = self._eas_contract.events.Attested()
-        except Exception:
-            attested_event = None
-
-        if attested_event is not None:
-            for log in logs:
-                try:
-                    decoded = attested_event.process_log(log)
-                except Exception:
-                    # Not an Attested event or ABI mismatch; try next log.
-                    continue
-                args = decoded.get("args", {}) if hasattr(decoded, "get") \
-                    else getattr(decoded, "args", {})
-                uid = None
-                if hasattr(args, "get"):
-                    uid = args.get("uid")
-                else:
-                    uid = getattr(args, "uid", None)
-                if isinstance(uid, (bytes, bytearray)) and any(uid):
-                    return "0x" + bytes(uid).hex()
-
-        # Manual fallback: match Attested event by topic[0] signature and
-        # read the single non-indexed ``uid`` word (first 32 bytes of data).
-        try:
-            from web3 import Web3
-            sig_topic = bytes(
-                Web3.keccak(text="Attested(address,address,bytes32,bytes32)")
-            )
-            for log in logs:
-                topics = log.get("topics") if isinstance(log, dict) else getattr(
-                    log, "topics", []
-                )
-                if not topics:
-                    continue
-                first = topics[0]
-                first_bytes = (
-                    bytes(first) if isinstance(first, (bytes, bytearray))
-                    else bytes.fromhex(str(first).replace("0x", ""))
-                )
-                if first_bytes != sig_topic:
-                    continue
-                data = log.get("data") if isinstance(log, dict) else getattr(
-                    log, "data", b""
-                )
-                data_bytes = (
-                    bytes(data) if isinstance(data, (bytes, bytearray))
-                    else bytes.fromhex(str(data).replace("0x", ""))
-                )
-                if len(data_bytes) >= 32:
-                    uid = data_bytes[:32]
-                    if any(uid):
-                        return "0x" + uid.hex()
-        except Exception:
-            pass
-
-        return "unknown"
-
-    # --- Hashing ---
+    # --- Hashing ----------------------------------------------------------
 
     def hash_artifact(self, artifact: dict) -> str:
-        """Compute SHA-256 hash of a canonical JSON artifact.
+        """Return the canonical SHA-256 hex digest of an artifact document."""
+        from attestix.auth.crypto import canonicalize_json
 
-        Uses the same normalization as sign_json_payload for consistency.
-        Returns hex string (64 chars).
-        """
-        normalized = _normalize_for_signing(artifact)
-        canonical = json.dumps(
-            normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        )
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        normalized = canonicalize_json(artifact)
+        return hashlib.sha256(normalized).hexdigest()
 
-    # --- Core Anchoring ---
+    # --- Core anchoring ---------------------------------------------------
 
     def anchor_artifact(
         self,
-        artifact_hash: str,
-        artifact_type: str,
-        artifact_id: str,
+        artifact_digest: Optional[object] = None,
+        artifact_type: str = "identity",
+        artifact_id: str = "",
+        subject_account: Optional[str] = None,
+        *,
+        artifact_hash: Optional[str] = None,
     ) -> dict:
-        """Submit an artifact hash to EAS on Base L2.
+        """Anchor one artifact digest in the registry.
 
-        Returns anchor record with tx_hash, attestation_uid, etc.
+        ``artifact_digest`` accepts 32 raw bytes, standard Base64 (the JSON wire
+        form) or the legacy 64-char hex form. ``artifact_hash`` is accepted as a
+        keyword alias for the pre-port REST surface.
         """
-        err = self._require_configured()
-        if err:
-            return {"error": err}
-
-        if artifact_type not in VALID_ARTIFACT_TYPES:
+        source = artifact_digest if artifact_digest is not None else artifact_hash
+        if source in (None, ""):
+            return {"error": "artifact_digest is required"}
+        artifact_key = str(artifact_type or "").strip().lower()
+        if artifact_key not in VALID_ARTIFACT_TYPES:
             return {
                 "error": (
                     f"Invalid artifact_type '{artifact_type}'. "
                     f"Must be one of: {', '.join(sorted(VALID_ARTIFACT_TYPES))}"
                 )
             }
-
-        try:
-            ok, schema_uid_or_err = self._ensure_schema_registered()
-            if not ok:
-                return {"error": f"Schema registration failed: {schema_uid_or_err}"}
-
-            from web3 import Web3
-            from eth_abi import encode
-
-            artifact_hash_bytes = bytes.fromhex(artifact_hash)
-            encoded_data = encode(
-                ["bytes32", "string", "string", "string"],
-                [artifact_hash_bytes, artifact_type, artifact_id, self._server_did],
-            )
-
-            schema_uid_bytes = bytes.fromhex(self._schema_uid.replace("0x", ""))
-
-            attestation_request = (
-                schema_uid_bytes,
-                (
-                    self._account.address,  # recipient (self-attestation)
-                    0,                      # expirationTime (no expiry)
-                    True,                   # revocable
-                    b"\x00" * 32,           # refUID (no reference)
-                    encoded_data,           # data
-                    0,                      # value (no ETH)
-                ),
-            )
-
-            with self._tx_lock:
-                tx = self._eas_contract.functions.attest(
-                    attestation_request
-                ).build_transaction({
-                    "from": self._account.address,
-                    "nonce": self._w3.eth.get_transaction_count(
-                        self._account.address, "pending"
-                    ),
-                    "gas": 300000,
-                    "maxFeePerGas": self._w3.eth.gas_price * 2,
-                    "maxPriorityFeePerGas": self._w3.eth.max_priority_fee,
-                    "chainId": NETWORKS[self._network]["chain_id"],
-                    "value": 0,
-                })
-
-                signed = self._account.sign_transaction(tx)
-                tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
-            receipt = self._w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
-
-            if receipt["status"] != 1:
-                return {
-                    "error": "Attestation transaction reverted. Check gas and balance."
-                }
-
-            # Extract attestation UID via the Attested event ABI decoder.
-            # EAS interface:
-            #   Attested(address indexed recipient,
-            #            address indexed attester,
-            #            bytes32 uid,
-            #            bytes32 indexed schemaUID)
-            # The uid is the single non-indexed field, so naive byte slicing
-            # (which was previously used) is fragile: it assumed the first log
-            # was always Attested and that log.data started with the uid. We
-            # now use contract.events.Attested().process_log(log) with a
-            # topic-signature fallback so the uid is decoded correctly even
-            # when other contracts emit logs in the same transaction.
-            attestation_uid = self._extract_attestation_uid(receipt)
-
-            anchor_id = f"anchor:{uuid.uuid4().hex[:12]}"
-            now = datetime.now(timezone.utc).isoformat()
-            network_config = NETWORKS[self._network]
-            tx_hash_hex = (
-                tx_hash.hex() if isinstance(tx_hash, bytes) else str(tx_hash)
-            )
-
-            anchor = {
-                "anchor_id": anchor_id,
-                "artifact_type": artifact_type,
-                "artifact_id": artifact_id,
-                "artifact_hash": artifact_hash,
-                "network": self._network,
-                "chain_id": network_config["chain_id"],
-                "tx_hash": tx_hash_hex,
-                "attestation_uid": attestation_uid,
-                "schema_uid": self._schema_uid,
-                "attester": self._account.address,
-                "block_number": receipt["blockNumber"],
-                "gas_used": receipt["gasUsed"],
-                "explorer_url": f"{network_config['explorer']}/tx/{tx_hash_hex}",
-                "anchored_at": now,
-                "issuer_did": self._server_did,
-            }
-
-            with storage_transaction():
-                data = load_anchors()
-                data["anchors"].append(anchor)
-                save_anchors(data)
-
-                safe_emit(
-                    self._emitter,
-                    action="blockchain.anchor",
-                    target_id=anchor_id,
-                    target_collection="anchors",
-                    actor=self._server_did,
-                    tenant_id=self._tenant_id,
-                    after={"anchor_id": anchor_id, "artifact_type": artifact_type,
-                           "artifact_id": artifact_id,
-                           "attestation_uid": attestation_uid},
-                )
-
-            return anchor
-
-        except Exception as e:
-            msg = log_and_format_error(
-                "anchor_artifact", e, ErrorCategory.BLOCKCHAIN,
-                artifact_type=artifact_type, artifact_id=artifact_id,
-            )
-            return {"error": msg}
-
-    # --- Verification ---
-
-    def verify_anchor(self, artifact_hash: str) -> dict:
-        """Verify an on-chain anchor for a given artifact hash.
-
-        Checks local registry first, then verifies on-chain if configured.
-        """
-        data = load_anchors()
-        local_matches = [
-            a for a in data["anchors"] if a["artifact_hash"] == artifact_hash
-        ]
-
+        if not artifact_id:
+            return {"error": "artifact_id is required"}
         err = self._require_configured()
         if err:
-            if local_matches:
-                return {
-                    "verified": "local_only",
-                    "note": "Cannot verify on-chain (blockchain not configured). Local record found.",
-                    "anchors": local_matches,
-                }
             return {"error": err}
-
-        if not local_matches:
-            return {
-                "verified": False,
-                "artifact_hash": artifact_hash,
-                "reason": "No local anchor record found for this hash",
-            }
-
         try:
-            results = []
-            for anchor in local_matches:
-                uid = anchor.get("attestation_uid", "")
-                if uid and uid != "unknown" and len(uid) == 66:
-                    uid_bytes = bytes.fromhex(uid.replace("0x", ""))
-                    is_valid = self._eas_contract.functions.isAttestationValid(
-                        uid_bytes
-                    ).call()
-                    on_chain = self._eas_contract.functions.getAttestation(
-                        uid_bytes
-                    ).call()
-
-                    revocation_time = on_chain[4] if len(on_chain) > 4 else 0
-                    results.append({
-                        **anchor,
-                        "on_chain_valid": is_valid,
-                        "on_chain_time": on_chain[2],
-                        "on_chain_revocation_time": revocation_time,
-                        "on_chain_revoked": revocation_time != 0,
-                        "on_chain_attester": on_chain[7],
-                    })
-                else:
-                    results.append({**anchor, "on_chain_valid": "unknown_uid"})
-
-            all_valid = all(r.get("on_chain_valid") is True for r in results)
-            return {
-                "verified": all_valid,
-                "artifact_hash": artifact_hash,
-                "anchor_count": len(results),
-                "anchors": results,
-            }
-        except Exception as e:
-            msg = log_and_format_error(
-                "verify_anchor", e, ErrorCategory.BLOCKCHAIN,
-                artifact_hash=artifact_hash,
+            digest_b64 = digest_to_base64(source)
+            digest_hex = digest_to_hex(source)
+            created = self.repository.create(
+                "anchors",
+                {
+                    "artifact_digest": digest_b64,
+                    "artifact_hash": digest_hex,
+                    "artifact_type": artifact_key,
+                    "artifact_id": artifact_id,
+                    "subject_account": subject_account,
+                    "network": self._network,
+                    "anchored_at": _now_iso(),
+                },
+                id_field="artifact_digest",
             )
-            return {"error": msg}
+            result = self._anchor_view(created, artifact_key, artifact_id, digest_b64)
+            result["subject_account"] = subject_account
+            if artifact_key == "identity":
+                result["agent_id"] = subject_account or artifact_id
+            safe_emit(
+                self._emitter,
+                action="blockchain.anchor",
+                target_id=result["anchor_id"],
+                target_collection="anchors",
+                actor=self.registry_id or "skjold:registry",
+                tenant_id=self._tenant_id,
+                after={
+                    "anchor_id": result["anchor_id"],
+                    "artifact_type": artifact_key,
+                    "artifact_id": artifact_id,
+                    "tx_hash": result.get("tx_hash"),
+                },
+            )
+            return result
+        except Exception as e:
+            return {
+                "error": log_and_format_error(
+                    "anchor_artifact", e, ErrorCategory.BLOCKCHAIN,
+                    artifact_type=artifact_type, artifact_id=artifact_id,
+                )
+            }
 
-    # --- Batch Anchoring ---
+    def anchor_identity(self, agent_id: str) -> dict:
+        """Anchor an agent identity document as a typed ``Identity`` artifact."""
+        err = self._require_configured()
+        if err:
+            return {"error": err}
+        try:
+            identity = self._find_identity(agent_id)
+            if identity is None:
+                return {"error": f"Identity {agent_id} not found"}
+            artifact_hash = self.hash_artifact(identity)
+            result = self.anchor_artifact(
+                artifact_hash,
+                "identity",
+                agent_id,
+                subject_account=agent_id,
+            )
+            if "error" in result:
+                return result
+            result["agent_id"] = agent_id
+            return result
+        except Exception as e:
+            return {
+                "error": log_and_format_error(
+                    "anchor_identity", e, ErrorCategory.BLOCKCHAIN, agent_id=agent_id
+                )
+            }
+
+    def anchor_credential(self, credential_id: str) -> dict:
+        """Anchor a locally stored credential under ``skjold-vc-digest/v1``."""
+        err = self._require_configured()
+        if err:
+            return {"error": err}
+        try:
+            credential = self._find_credential(credential_id)
+            if credential is None:
+                return {"error": f"Credential {credential_id} not found"}
+            digest = vc_digest(credential)
+            digest_b64 = digest_to_base64(digest)
+            subject_did = (credential.get("credentialSubject") or {}).get("id") or ""
+            subject_account = self._subject_account(subject_did)
+            types = credential.get("type") or []
+            cred_type = types[-1] if isinstance(types, list) and types else "VerifiableCredential"
+            expires_at_ns = self._expiry_ns(credential.get("expirationDate"))
+            created = self.repository.create(
+                "credentials",
+                {
+                    "id": credential_id,
+                    "cid": digest_b64,
+                    "vc": credential,
+                    "subject_did": subject_did,
+                    "subject_account": subject_account,
+                    "cred_type": cred_type,
+                    "expires_at_ns": expires_at_ns,
+                },
+                id_field="id",
+            )
+            result = self._anchor_view(
+                created, "credential", credential_id, digest_b64
+            )
+            result.update(
+                {
+                    "cid": digest_b64,
+                    "digest_profile": VC_DIGEST_PROFILE,
+                    "subject_did": subject_did,
+                    "subject_account": subject_account,
+                    "cred_type": cred_type,
+                    "expires_at_ns": expires_at_ns,
+                }
+            )
+            safe_emit(
+                self._emitter,
+                action="blockchain.anchor",
+                target_id=result["anchor_id"],
+                target_collection="anchors",
+                actor=self.registry_id or "skjold:registry",
+                tenant_id=self._tenant_id,
+                after={
+                    "anchor_id": result["anchor_id"],
+                    "artifact_type": "credential",
+                    "artifact_id": credential_id,
+                    "digest_profile": VC_DIGEST_PROFILE,
+                    "tx_hash": result.get("tx_hash"),
+                },
+            )
+            return result
+        except Exception as e:
+            return {
+                "error": log_and_format_error(
+                    "anchor_credential", e, ErrorCategory.BLOCKCHAIN,
+                    credential_id=credential_id,
+                )
+            }
+
+    # --- Batch anchoring --------------------------------------------------
 
     def anchor_audit_batch(
         self,
@@ -609,50 +288,45 @@ class BlockchainService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> dict:
-        """Compute Merkle root of audit log entries and anchor on-chain."""
+        """Anchor the Merkle root of an agent's audit entries as ``AuditBatch``."""
         err = self._require_configured()
         if err:
             return {"error": err}
-
         try:
-            from attestix.config import load_provenance
             from attestix.blockchain.merkle import compute_merkle_root
 
-            prov_data = load_provenance()
             entries = [
-                e for e in prov_data["audit_log"]
-                if e.get("agent_id") == agent_id
+                entry
+                for entry in load_provenance().get("audit_log", [])
+                if entry.get("agent_id") == agent_id
             ]
-
             if start_date:
                 entries = [
-                    e for e in entries if e.get("timestamp", "") >= start_date
+                    entry for entry in entries
+                    if entry.get("timestamp", "") >= start_date
                 ]
             if end_date:
                 entries = [
-                    e for e in entries if e.get("timestamp", "") <= end_date
+                    entry for entry in entries
+                    if entry.get("timestamp", "") <= end_date
                 ]
-
             if not entries:
                 return {
                     "error": (
                         f"No audit log entries found for {agent_id} "
-                        f"in the specified range"
+                        "in the specified range"
                     )
                 }
-
             merkle_root, leaf_count = compute_merkle_root(entries)
-
             batch_id = f"batch:{uuid.uuid4().hex[:12]}"
             result = self.anchor_artifact(
-                artifact_hash=merkle_root,
-                artifact_type="audit_batch",
-                artifact_id=batch_id,
+                merkle_root,
+                "audit_batch",
+                batch_id,
+                subject_account=agent_id,
             )
-
             if "error" in result:
                 return result
-
             result["batch_metadata"] = {
                 "agent_id": agent_id,
                 "entry_count": leaf_count,
@@ -660,90 +334,255 @@ class BlockchainService:
                 "start_date": start_date or entries[0].get("timestamp"),
                 "end_date": end_date or entries[-1].get("timestamp"),
             }
-
             return result
         except Exception as e:
-            msg = log_and_format_error(
-                "anchor_audit_batch", e, ErrorCategory.BLOCKCHAIN,
-                agent_id=agent_id,
-            )
-            return {"error": msg}
+            return {
+                "error": log_and_format_error(
+                    "anchor_audit_batch", e, ErrorCategory.BLOCKCHAIN, agent_id=agent_id
+                )
+            }
 
-    # --- Status Queries ---
+    # --- Verification -----------------------------------------------------
+
+    def verify_anchor(self, artifact_digest: object) -> dict:
+        """Verify an anchor through ``get_anchor`` (chain) or the local index."""
+        try:
+            digest_b64 = digest_to_base64(artifact_digest)
+            digest_hex = digest_to_hex(artifact_digest)
+        except Exception as e:
+            return {
+                "error": log_and_format_error(
+                    "verify_anchor", e, ErrorCategory.BLOCKCHAIN,
+                )
+            }
+        if self.is_configured:
+            try:
+                anchor = self.repository.get(
+                    "anchors", digest_b64, id_field="artifact_digest"
+                )
+            except Exception as e:
+                return {
+                    "error": log_and_format_error(
+                        "verify_anchor", e, ErrorCategory.BLOCKCHAIN,
+                        artifact_digest=digest_b64,
+                    )
+                }
+            if anchor is None:
+                return {
+                    "verified": False,
+                    "artifact_digest": digest_b64,
+                    "artifact_hash": digest_hex,
+                    "anchor_count": 0,
+                    "anchors": [],
+                    "reason": "No registry anchor found for this digest",
+                }
+            anchors = [anchor]
+            confirmed = anchor.get("chain_status") == "anchored"
+            result = {
+                "verified": confirmed,
+                "artifact_digest": digest_b64,
+                "artifact_hash": digest_hex,
+                "anchor_count": len(anchors),
+                "anchors": anchors,
+                "network": self._network,
+                "registry_id": self.registry_id,
+            }
+            if not confirmed:
+                result["reason"] = "Anchor is recorded locally but not confirmed on-chain"
+            return result
+
+        # No chain configured: report local-only records instead of faking proof.
+        local = [
+            anchor
+            for anchor in load_anchors().get("anchors", [])
+            if anchor.get("artifact_digest") == digest_b64
+            or anchor.get("artifact_hash") == digest_hex
+        ]
+        if not local:
+            return {
+                "verified": False,
+                "artifact_digest": digest_b64,
+                "artifact_hash": digest_hex,
+                "anchor_count": 0,
+                "anchors": [],
+                "reason": "No local anchor record found for this digest",
+            }
+        return {
+            "verified": "local_only",
+            "note": "NEAR registry not configured; returning local anchor records only.",
+            "artifact_digest": digest_b64,
+            "artifact_hash": digest_hex,
+            "anchor_count": len(local),
+            "anchors": local,
+        }
+
+    # --- Status queries ---------------------------------------------------
 
     def get_anchor_status(self, agent_id: str) -> dict:
-        """Get all on-chain anchors associated with an agent."""
-        try:
-            data = load_anchors()
+        """Return the flat typed anchor list for an agent."""
+        if self.is_configured:
+            try:
+                anchors = self.repository.list(
+                    "anchors", filters={"subject_account": agent_id}
+                )
+                return {
+                    "agent_id": agent_id,
+                    "anchor_count": len(anchors),
+                    "anchors": anchors,
+                    "network": self._network,
+                    "registry_id": self.registry_id,
+                }
+            except Exception as e:
+                return {
+                    "error": log_and_format_error(
+                        "get_anchor_status", e, ErrorCategory.BLOCKCHAIN,
+                        agent_id=agent_id,
+                    )
+                }
+        anchors = []
+        for anchor in load_anchors().get("anchors", []):
+            artifact_id = anchor.get("artifact_id", "")
+            batch_agent = (anchor.get("batch_metadata") or {}).get("agent_id")
+            if agent_id in artifact_id or batch_agent == agent_id:
+                anchors.append(anchor)
+        return {
+            "agent_id": agent_id,
+            "anchor_count": len(anchors),
+            "anchors": anchors,
+            "network": self._network,
+            "note": "NEAR registry not configured; local anchor records only.",
+        }
 
-            agent_anchors = []
-            for anchor in data["anchors"]:
-                aid = anchor.get("artifact_id", "")
-                if agent_id in aid:
-                    agent_anchors.append(anchor)
-                    continue
-                batch_meta = anchor.get("batch_metadata", {})
-                if batch_meta and batch_meta.get("agent_id") == agent_id:
-                    agent_anchors.append(anchor)
+    # --- Cost estimation --------------------------------------------------
 
-            by_type = {}
-            for a in agent_anchors:
-                t = a.get("artifact_type", "unknown")
-                by_type.setdefault(t, []).append(a)
-
+    def estimate_anchor_cost(
+        self,
+        artifact_type: str = "identity",
+        artifact_id_len: int = 64,
+        has_subject: bool = False,
+    ) -> dict:
+        """Estimate the storage deposit for an ``anchor_artifact`` call."""
+        artifact_key = str(artifact_type or "").strip().lower()
+        if artifact_key not in VALID_ARTIFACT_TYPES:
             return {
-                "agent_id": agent_id,
-                "total_anchors": len(agent_anchors),
-                "by_type": {k: len(v) for k, v in by_type.items()},
-                "anchors": agent_anchors,
-                "network": self._network,
-                "wallet": self.wallet_address,
+                "error": (
+                    f"Invalid artifact_type '{artifact_type}'. "
+                    f"Must be one of: {', '.join(sorted(VALID_ARTIFACT_TYPES))}"
+                )
             }
-        except Exception as e:
-            msg = log_and_format_error(
-                "get_anchor_status", e, ErrorCategory.BLOCKCHAIN,
-                agent_id=agent_id,
-            )
-            return {"error": msg}
-
-    # --- Gas Estimation ---
-
-    def estimate_anchor_cost(self, artifact_type: str = "identity") -> dict:
-        """Estimate gas cost for an anchoring transaction."""
         err = self._require_configured()
         if err:
             return {"error": err}
-
         try:
-            gas_price = self._w3.eth.gas_price
-            max_priority_fee = self._w3.eth.max_priority_fee
-            balance = self._w3.eth.get_balance(self._account.address)
-            estimated_gas = 300000  # matches actual tx gas limit
-
-            # Use EIP-1559 max fee (gas_price * 2) for worst-case estimate
-            max_fee = gas_price * 2
-            estimated_cost_wei = estimated_gas * max_fee
-            estimated_cost_eth = self._w3.from_wei(estimated_cost_wei, "ether")
-            balance_eth = self._w3.from_wei(balance, "ether")
-
-            network_config = NETWORKS[self._network]
+            client = getattr(self.repository, "client", None)
+            if client is None:
+                return {"error": "NEAR registry client is not configured"}
+            estimate = client.view(
+                "estimate_anchor_cost",
+                {
+                    "artifact_type": {
+                        "identity": "Identity",
+                        "credential": "Credential",
+                        "declaration": "Declaration",
+                        "audit_batch": "AuditBatch",
+                    }[artifact_key],
+                    "artifact_id_len": int(artifact_id_len),
+                    "has_subject": bool(has_subject),
+                },
+            )
+            yocto = self._near_token_yocto(estimate)
             return {
+                "artifact_type": artifact_key,
+                "artifact_id_len": int(artifact_id_len),
+                "has_subject": bool(has_subject),
                 "network": self._network,
-                "chain_id": network_config["chain_id"],
-                "wallet": self._account.address,
-                "balance_eth": str(balance_eth),
-                "estimated_gas": estimated_gas,
-                "gas_price_gwei": str(self._w3.from_wei(gas_price, "gwei")),
-                "max_priority_fee_gwei": str(
-                    self._w3.from_wei(max_priority_fee, "gwei")
-                ),
-                "estimated_cost_eth": str(estimated_cost_eth),
-                "can_afford": balance >= estimated_cost_wei,
-                "artifact_type": artifact_type,
-                "explorer": network_config["explorer"],
+                "registry_id": self.registry_id,
+                "storage_cost_yocto": yocto,
+                "storage_cost_near": self._yocto_to_near(yocto),
             }
         except Exception as e:
-            msg = log_and_format_error(
-                "estimate_anchor_cost", e, ErrorCategory.BLOCKCHAIN,
-            )
-            return {"error": msg}
+            return {
+                "error": log_and_format_error(
+                    "estimate_anchor_cost", e, ErrorCategory.BLOCKCHAIN,
+                    artifact_type=artifact_type,
+                )
+            }
+
+    # --- helpers ----------------------------------------------------------
+
+    def _anchor_view(
+        self, created: dict, artifact_type: str, artifact_id: str, digest_b64: str
+    ) -> dict:
+        digest_hex = digest_to_hex(digest_b64)
+        return {
+            "anchor_id": created.get("anchor_id") or f"anchor:{digest_hex[:12]}",
+            "artifact_type": artifact_type,
+            "artifact_id": artifact_id,
+            "artifact_digest": digest_b64,
+            "artifact_hash": digest_hex,
+            "subject_account": created.get("subject_account"),
+            "network": self._network,
+            "registry_id": self.registry_id,
+            "tx_hash": created.get("tx_hash"),
+            "status": created.get("status", "anchored"),
+            "anchored_at": created.get("anchored_at") or _now_iso(),
+        }
+
+    def _find_identity(self, agent_id: str) -> Optional[dict]:
+        for agent in load_identities().get("agents", []):
+            if agent.get("agent_id") == agent_id or agent.get("agent") == agent_id:
+                return agent
+        return None
+
+    def _find_credential(self, credential_id: str) -> Optional[dict]:
+        for credential in load_credentials().get("credentials", []):
+            if credential.get("id") == credential_id:
+                return credential
+        return None
+
+    def _subject_account(self, subject_did: str) -> Optional[str]:
+        if not subject_did:
+            return None
+        account = (
+            subject_did[len("did:near:"):]
+            if subject_did.startswith("did:near:")
+            else subject_did
+        )
+        registry = self.registry_id
+        if registry and account.endswith("." + registry):
+            return account
+        return None
+
+    @staticmethod
+    def _expiry_ns(value: Optional[str]) -> int:
+        if not value:
+            return 0
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return 0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return int(parsed.timestamp() * 1_000_000_000)
+
+    @staticmethod
+    def _near_token_yocto(estimate) -> str:
+        if isinstance(estimate, str):
+            return estimate
+        if isinstance(estimate, int):
+            return str(estimate)
+        if isinstance(estimate, dict):
+            for key in ("yocto", "yocto_near", "amount", "cost", "storage_cost"):
+                value = estimate.get(key)
+                if value is not None:
+                    return str(value)
+            if len(estimate) == 1:
+                return str(next(iter(estimate.values())))
+        raise ValueError(f"Unsupported estimate_anchor_cost response: {estimate!r}")
+
+    @staticmethod
+    def _yocto_to_near(yocto: str) -> str:
+        try:
+            return f"{int(yocto) / 10**24:.24f}".rstrip("0").rstrip(".")
+        except (TypeError, ValueError):
+            return ""

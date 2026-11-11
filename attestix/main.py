@@ -1,8 +1,8 @@
-"""Attestix - Attestation Infrastructure for AI Agents
+"""skjold - Attestation Infrastructure for AI Agents (NEAR port)
 
 MCP server for cross-protocol agent identity bridging,
 delegation chains, reputation scoring, EU AI Act compliance,
-and blockchain anchoring.
+and skjold registry anchoring.
 
 47 tools across 9 modules:
   - Identity (8): create, resolve, verify, translate, list, get, revoke, purge (GDPR)
@@ -37,7 +37,7 @@ from attestix.errors import setup_logging
 setup_logging(log_file=str(LOG_FILE))
 
 # Create MCP server
-mcp = FastMCP("attestix")
+mcp = FastMCP("skjold")
 
 # Register tool modules
 from attestix.tools import (
@@ -55,7 +55,7 @@ credential_tools.register(mcp)
 provenance_tools.register(mcp)
 blockchain_tools.register(mcp)
 
-print(f"Attestix MCP server loaded: 47 tools registered", file=sys.stderr)
+print(f"skjold MCP server loaded: 47 tools registered", file=sys.stderr)
 
 
 def main():

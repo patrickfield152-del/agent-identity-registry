@@ -57,6 +57,51 @@ UNIVERSAL_RESOLVER_URL = _get_env(
     default="https://dev.uniresolver.io/1.0/identifiers/",
 )
 
+# Default public RPC endpoints per NEAR network.
+NEAR_DEFAULT_RPC_URLS = {
+    "testnet": "https://rpc.testnet.near.org",
+    "mainnet": "https://rpc.mainnet.near.org",
+}
+
+# skjold registry configuration (canonical names; the origin EVM names are not
+# aliased). Setting SKJOLD_REGISTRY_ID switches the default Repository to
+# NearRepository.
+NEAR_NETWORK = (_get_env("NEAR_NETWORK", default="testnet") or "testnet").strip().lower()
+NEAR_RPC_URL = _get_env(
+    "NEAR_RPC_URL",
+    default=NEAR_DEFAULT_RPC_URLS.get(
+        NEAR_NETWORK, NEAR_DEFAULT_RPC_URLS["testnet"]
+    ),
+)
+SKJOLD_REGISTRY_ID = _get_env("SKJOLD_REGISTRY_ID")
+SKJOLD_OPERATOR_KEY = _get_env("SKJOLD_OPERATOR_KEY")
+SKJOLD_VC_ISSUER_KEY = _get_env("SKJOLD_VC_ISSUER_KEY")
+SKJOLD_API_KEY = _get_env("SKJOLD_API_KEY")
+
+SKJOLD_VC_ISSUER_ACCOUNT = _get_env("SKJOLD_VC_ISSUER_ACCOUNT")
+
+
+def issuer_did() -> Optional[str]:
+    """Return the did:near issuer identifier for the dedicated VC account.
+
+    The issuer account holds exactly ONE FullAccess key — the key loaded into
+    ``InProcessSigner``. Precedence:
+
+    1. ``SKJOLD_VC_ISSUER_ACCOUNT`` -> ``did:near:<account>``;
+    2. ``SKJOLD_VC_ISSUER_KEY`` + ``SKJOLD_REGISTRY_ID`` ->
+       ``did:near:vc-issuer.<registry>``;
+    3. ``None`` (origin did:key mode, e.g. local tests).
+    """
+    account = SKJOLD_VC_ISSUER_ACCOUNT or os.getenv("SKJOLD_VC_ISSUER_ACCOUNT")
+    if account:
+        return f"did:near:{account}"
+    issuer_key = SKJOLD_VC_ISSUER_KEY or os.getenv("SKJOLD_VC_ISSUER_KEY")
+    registry_id = SKJOLD_REGISTRY_ID or os.getenv("SKJOLD_REGISTRY_ID")
+    if issuer_key and registry_id:
+        return f"did:near:vc-issuer.{registry_id}"
+    return None
+
+
 # UAIT defaults
 UAIT_VERSION = "0.1.0"
 DEFAULT_EXPIRY_DAYS = int(_get_env("DEFAULT_EXPIRY_DAYS", default="365"))
@@ -176,29 +221,33 @@ def _safe_save(filepath: Path, data: dict):
         temp.replace(filepath)
 
 
-# --- Default file Repository backing for the public load_*/save_* shims ---
+# --- Default Repository backing for the public load_*/save_* shims ---
 #
-# v0.4.0 introduces a pluggable storage seam (storage.Repository). The public
-# load_*/save_* functions below are retained as thin shims over the default
-# file-backed Repository so external callers that import them keep working
-# unchanged (backward compatibility, constitution principle II). The Repository
-# is resolved lazily to avoid an import cycle (storage.file_repository imports
-# this module) and so test monkeypatching of the *_FILE paths is still honored
-# (FileRepository reads those paths from this module on each call).
+# v0.4.0 introduced a pluggable storage seam (storage.Repository). The public
+# load_*/save_* functions below are retained as thin shims over the process-wide
+# default Repository so external callers that import them keep working
+# unchanged. The default resolves lazily through
+# ``attestix.storage.default_repository()`` to avoid an import cycle
+# (storage.file_repository imports this module) and so test monkeypatching of the
+# *_FILE paths is still honored. With SKJOLD_REGISTRY_ID set the default is
+# NearRepository; otherwise it is the origin FileRepository.
 
+#: Legacy attribute name kept for callers that inspected the cached instance.
 _file_repository = None
 
 
 def _repo():
-    """Return the process-wide default file Repository (lazy, cycle-safe)."""
+    """Return the process-wide default Repository (lazy, cycle-safe)."""
     global _file_repository
-    if _file_repository is None:
-        from attestix.storage.file_repository import FileRepository
-        _file_repository = FileRepository()
-    return _file_repository
+    from attestix.storage import default_repository
+
+    repository = default_repository()
+    _file_repository = repository
+    return repository
 
 
 # --- Identity storage ---
+
 
 def load_identities() -> dict:
     return _repo().load_document("identities")
