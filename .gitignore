@@ -98,3 +98,9 @@ nul
 # persona-review run artifacts — embed injected internal business context (revenue, personal, investor names). Never commit, especially to the public OSS repo. Audit trail is preserved in each spec.md "Persona-Review Remediation" section.
 specs/**/reviews/
 **/reviews/
+
+# NEAR contract build output
+contracts/registry/target/
+target/
+node_modules/
+.near-credentials/

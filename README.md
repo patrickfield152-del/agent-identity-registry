@@ -1,565 +1,191 @@
-<!-- mcp-name: io.github.VibeTensor/attestix -->
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/VibeTensor/attestix/main/docs/assets/atx_icon.png" alt="Attestix" width="120" height="120" />
-</p>
-
-<h1 align="center">Attestix</h1>
-
-<p align="center">
-  <strong>Signed identity and evidence for AI agents</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/VibeTensor/attestix/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/VibeTensor/attestix/test.yml?branch=main&label=tests&style=flat-square" alt="CI"></a>
-  <a href="https://github.com/VibeTensor/attestix/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/VibeTensor/attestix/lint.yml?branch=main&label=lint&style=flat-square" alt="Lint"></a>
-  <a href="https://github.com/VibeTensor/attestix/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/VibeTensor/attestix/security.yml?branch=main&label=security&style=flat-square" alt="Security"></a>
-  <a href="https://codecov.io/gh/VibeTensor/attestix"><img src="https://img.shields.io/codecov/c/github/VibeTensor/attestix?style=flat-square" alt="Coverage"></a>
-  <a href="https://pypi.org/project/attestix/"><img src="https://img.shields.io/pypi/v/attestix?color=4f46e5&style=flat-square" alt="PyPI"></a>
-  <a href="https://pypi.org/project/attestix/"><img src="https://img.shields.io/pypi/pyversions/attestix?color=4f46e5&style=flat-square" alt="Python"></a>
-  <a href="https://github.com/VibeTensor/attestix/blob/main/LICENSE"><img src="https://img.shields.io/github/license/VibeTensor/attestix?color=4f46e5&style=flat-square" alt="License"></a>
-  <a href="https://attestix.io/docs"><img src="https://img.shields.io/badge/docs-attestix.io%2Fdocs-4f46e5?style=flat-square" alt="Docs"></a>
-  <a href="https://attestix.io"><img src="https://img.shields.io/badge/website-attestix.io-4f46e5?style=flat-square" alt="Website"></a>
-</p>
-
-<p align="center">
-  Record cryptographically verifiable evidence to support AI governance workflows.<br/>
-  Open-source identity, credentials, compliance automation, and trust scoring.<br/>
-  MCP and REST interfaces,
-  Automated functional tests and Attestix interoperability benchmarks.<br/>
-  Real integrations with LangChain, OpenAI Agents SDK, and CrewAI.
-</p>
-
-<p align="center">
-  <em>Status: pre-1.0 toolkit; this README describes current main source.
-  Single-maintainer project, community
-  contributions welcome. No independent third-party security audit has been
-  performed yet; deploy with the same diligence you would apply to any
-  pre-1.0 open-source crypto stack.</em>
-</p>
-
----
-
-## Source and verification status
-
-Python `attestix` 0.5.0 is published on PyPI and requires Python 3.11 or later. Confirm the release files on [PyPI](https://pypi.org/project/attestix/0.5.0/) before installing; source metadata alone is not proof of publication. Python 0.4.3 is a previously published release with the Filelock constraint described below. Language SDKs have independent release schedules; verify each registry and pin the version you reviewed.
-
-- Credential verification binds the stated issuer to the supported proof controller. Ambiguous NFC-normalized keys fail before signing or verification.
-- Presentation verification requires the caller's expected challenge and domain. A signature alone does not provide replay protection.
-- REST use requires an API key by default. The default REST server is single-tenant and rejects non-default tenant headers; a shared API key does not provide cross-tenant authorization.
-- JSON updates use the shared storage lock. Protect the local signing key and data directory; test backup restoration, isolation and your selected signer/backend before production.
-- `workflow_complete` describes recorded documentation completion. `legal_conformity` is not assessed; the deprecated `compliant` field is a workflow alias. Generated declarations are drafts for provider review.
-- Local purge cannot erase external replicas, remote logs, previously shared credentials or third-party backups. Plan historical data and credential migration separately.
-
-## Install
-
-Attestix 0.5.0 requires Python 3.11 or later for the patched file-locking dependency. Earlier releases retain their own Python requirements; check the registry files for the version you install.
-
-```bash
-# Confirm this release is available on PyPI before installing:
-pip install attestix==0.5.0
-```
-
-Version 0.4.3 requires `filelock<4.0.0` and cannot install patched Filelock 4.2.1. On Unix, keep the Attestix data directory private and prevent other users from replacing its lock path. This limits the conditional local file-truncation risk described in the [Filelock advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-69hj-f68j-2879). Moving from 0.4.3 to 0.5.0 requires Python 3.11 or later; review the release files before upgrading.
-
-> Since 0.4.0, the supported namespace is the canonical
-> `attestix.*` namespace. The older flat layout (`from services... import`,
-> `from auth... import`, ...) keeps working via thin deprecation shims that
-> emit a `DeprecationWarning` on first import and may be removed in
-> a future release. Update imports to `from attestix.services... import` at your earliest
-> convenience.
-
-### CLI
-
-```bash
-attestix status                          # System overview
-attestix init --name MyBot               # Create agent identity
-attestix compliance <agent-id>           # Check recorded documentation gaps
-attestix verify <agent-id>               # Verify identity cryptographically
-attestix audit <agent-id>                # View hash-chained audit trail
-attestix credential --list               # List W3C Verifiable Credentials
-```
-
-### REST API
-
-```bash
-pip install 'attestix[api]==0.5.0'
-# Configure ATTESTIX_API_KEY in your environment before starting the API.
-uvicorn attestix.api.main:app --reload   # Swagger docs at http://localhost:8000/docs
-```
-
-### Web Dashboard
-
-```bash
-pip install streamlit
-streamlit run demo/webapp/app.py         # Opens at http://localhost:8501
-```
-
-### Quick Demo
-
-```bash
-python examples/quickstart.py            # Local synthetic workflow
-```
-
-## Verify in any language
-
-Attestix credentials use a published canonical-JSON and Ed25519 verification profile.
-Language-specific verifier repositories share conformance fixtures, but their trust-input
-and delegation-chain checks differ. Read each verifier README and pin a reviewed version.
-Cryptographic validity is separate from issuer trust, authorization, revocation and replay policy.
-
-| Language | Install | Status |
-|----------|---------|--------|
-| **Python** | `pip install attestix==0.5.0` | PyPI 0.5.0 published; verify release files |
-| **JS / TS** | `npm install attestix@0.4.2` | npm 0.4.2; verifier source ([attestix-js](https://github.com/VibeTensor/attestix-js)) |
-| **Go** | `go get github.com/VibeTensor/attestix-go@v0.4.2` | Go module v0.4.2; verifier source ([attestix-go](https://github.com/VibeTensor/attestix-go)) |
-| **Rust** | `cargo add attestix` | crates.io 0.4.1; GitHub v0.4.2 source ([attestix-rs](https://github.com/VibeTensor/attestix-rs)) |
-| **Java** | Maven `com.vibetensor:attestix:0.4.2` | Maven 0.4.2; verifier source ([attestix-java](https://github.com/VibeTensor/attestix-java)) |
-| **R** | See repository installation instructions | CRAN 0.4.1; GitHub 0.4.2 source ([attestix-r](https://github.com/VibeTensor/attestix-r)) |
-
-Every verifier targets the Attestix canonical-JSON profile, which differs from strict [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785),
-and Ed25519 signatures ([RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)) against
-the shared [`spec/verify/v1`](https://github.com/VibeTensor/attestix/tree/main/spec/verify/v1)
-vectors. Verify in the browser at <https://attestix.io/verify>, or read the
-bundle wire-format at <https://attestix.io/spec/bundle/v1>.
-
-## Why Attestix
-
-The EU AI Act has a staged application timeline. The European Commission currently lists
-2 December 2027 for specified high-risk use cases and 2 August 2028 for high-risk systems
-embedded in regulated products. Applicability depends on the system and the operator's role.
-See the [European Commission's current AI Act guidance](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai).
-
-Attestix helps organize evidence; a signature or generated declaration does not establish
-legal conformity or replace the applicable assessment process.
-
-Attestix provides agent identity, signed credentials, delegation, and offline verification
-for developers who need portable evidence in their applications. Broader governance
-platforms also offer APIs, SDKs, agent governance, and compliance workflows; evaluate
-their current capabilities against your requirements.
-
-Agent identity is fragmenting across walled gardens (Microsoft Entra, AWS AgentCore, ERC-8004). Attestix combines **agent identity, AI governance evidence and verifiable credentials** in one toolkit.
-
-Attestix fills this gap.
-
----
-
-## Modules
-
-| Module | What it does |
-|--------|-------------|
-| **Identity** | Unified Agent Identity Tokens (UAITs) bridging MCP OAuth, A2A, DIDs, and API keys. local data erasure tooling |
-| **Agent Cards** | Parse, generate, and discover A2A-compatible agent cards |
-| **DID** | Create and resolve W3C Decentralized Identifiers (`did:key`, `did:web`) |
-| **Delegation** | UCAN-style capability delegation with EdDSA-signed JWT tokens |
-| **Reputation** | Recency-weighted trust scoring (0.0 - 1.0) with category breakdown |
-| **Compliance** | EU AI Act risk profiles, conformity assessments (Article 43), Annex V declarations |
-| **Credentials** | W3C Verifiable Credentials with Ed25519Signature2020 proofs, presentations |
-| **Provenance** | Training data provenance (Article 10), model lineage (Article 11), hash-chained audit trail (Article 12) |
-| **Blockchain** | Anchor artifact hashes to Base L2 via Ethereum Attestation Service, Merkle batching |
-
----
-
-## Quick Start
-
-### As an MCP Server (Claude Code)
-
-Add to your Claude Code config (`~/.claude.json`):
-
-```json
-{
-  "mcpServers": {
-    "attestix": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["-m", "attestix.main"]
-    }
-  }
-}
-```
-
-Then ask Claude:
-
-> "Create an identity for my data analysis agent with capabilities: data_analysis, reporting"
-
-### As a Python Library
-
-```python
-from attestix.services.identity_service import IdentityService
-from attestix.services.compliance_service import ComplianceService
-from attestix.services.credential_service import CredentialService
-
-identity_svc = IdentityService()
-compliance_svc = ComplianceService()
-credential_svc = CredentialService()
-
-# 1. Create an agent identity
-agent = identity_svc.create_identity(
-    display_name="MyAgent",
-    source_protocol="manual",
-    capabilities=["data_analysis", "reporting"],
-    description="Analyzes quarterly financial data",
-    issuer_name="VibeTensor",
-    expiry_days=365,
-)
-agent_id = agent["agent_id"]      # attestix:f9bdb7a94ccb40f1
-agent_did = agent["issuer"]["did"]  # did:key:z6Mk...
-
-# 2. Create a compliance profile
-profile = compliance_svc.create_compliance_profile(
-    agent_id=agent_id,
-    risk_category="limited",
-    provider_name="VibeTensor",
-    intended_purpose="Analyzes quarterly financial data",
-)
-
-# 3. Issue a verifiable credential
-credential = credential_svc.issue_credential(
-    subject_id=agent_id,
-    credential_type="AgentIdentityCredential",
-    issuer_name="VibeTensor",
-    claims={"capabilities": ["data_analysis", "reporting"]},
-    expiry_days=365,
-)
-print(credential["proof"]["type"])  # Ed25519Signature2020
-```
-
-For a complete end-to-end walkthrough covering all 9 modules, run the quickstart:
-
-```bash
-python examples/quickstart.py
-```
-
-### From Source
-
-```bash
-git clone https://github.com/VibeTensor/attestix.git
-cd attestix
-pip install -r requirements.txt
-python -m attestix.main
-```
-
----
-
-## AI governance evidence workflow
-
-Record a high-risk AI agent documentation workflow for provider review:
-
-```
-1. create_agent_identity        --> UAIT with DID (Ed25519 signed)
-2. record_training_data         --> Article 10 data governance
-3. record_model_lineage         --> Article 11 technical documentation
-4. create_compliance_profile    --> Risk categorization + obligations
-5. record_conformity_assessment --> Operator-recorded assessment details
-6. generate_declaration_of_conformity --> Annex V declaration + W3C VC
-7. create_verifiable_presentation     --> Signed VP for a verifier with a fresh challenge
-```
-
-The current Attestix workflow blocks self-assessment for a profile marked high-risk. This application policy is not a universal determination of the legally applicable assessment route:
-
-```
-record_conformity_assessment(assessment_type="self", ...)
---> ERROR: "High-risk AI systems require third_party conformity assessment"
-```
-
-Full walkthrough: [EU AI Act Compliance Guide](https://attestix.io/docs/guides/eu-ai-act-compliance)
-
----
-
-## How It Works
-
-Credentials and presentations carry signatures; audit chains carry integrity hashes.
-Not every record or external artifact is independently signed:
-
-| Artifact | Standard | Signed |
-|----------|----------|--------|
-| Agent Identity (UAIT) | Custom + DID | Ed25519 |
-| Verifiable Credential | W3C VC Data Model 1.1 | Ed25519Signature2020 |
-| Verifiable Presentation | W3C VP | Ed25519Signature2020 |
-| Delegation Token | UCAN-style JWT | EdDSA |
-| Draft evidence credential | Attestix documentation profile | Ed25519 |
-| Audit Trail | Hash-chained log | SHA-256 chain |
-| Blockchain Anchor | EAS on Base L2 | On-chain |
-
-**Local operation.** Core identity and credential operations can use local JSON storage.
-Remote DID resolution, hosted signers and blockchain integrations require their configured services.
-
----
+# skjold
+
+Agent identity and verifiable evidence on NEAR. skjold is a port of
+[attestix](https://github.com/VibeTensor/attestix): it keeps the Python MCP / REST / CLI
+surface, the Ed25519 canonical-JSON credential profile and the conformance vectors, and
+replaces the local JSON storage plus EAS-on-Base anchoring with one NEAR Rust registry
+contract.
+
+## The primitive
+
+Two NEAR-native pieces carry the design.
+
+**`did:near` identity registry.** Each agent is a sub-account of the registry account,
+for example `agent1.registry.skjold.testnet`. The DID document is resolved from the
+account's FullAccess keys, and each agent sub-account holds exactly **one** FullAccess
+key, so the document has exactly one `#owner` verification method. The contract stores
+the agent record, the sha256 digest of the signed UAIT payload (UAIT minus its mutable
+fields), and the revocation state. The registry flag is the authority: revoking an agent
+stops its registry calls but does not take over the sub-account.
+
+**Function-call access keys as delegation.** A delegation is a function-call key on the
+agent account restricted to `contract_id = SKJOLD_REGISTRY_ID` and
+`method_names = ["anchor_artifact"]`. The registry additionally records the UCAN `jti`
+and indexes the key (`delegation_by_key[fck_pubkey] -> jti`), so a revoked or
+expired delegation is rejected on the next call even if the key was never deleted.
+Function-call allowances are gas-only budgets, so every cap that matters is enforced by
+the contract rather than by the key.
+
+Around those two pieces:
+
+- **Credentials** are signed off-chain and only their digest is anchored. The digest is
+  `skjold-vc-digest/v1`: Base64(SHA-256 of the canonical credential minus `proof` and
+  `credentialStatus`). This is a project profile, not the stock did:near ProofType cid,
+  which hashes the whole credential.
+- **Reputation** is a decayed aggregate (`sum(w * decay)`, `sum(decay)`,
+  `last_update_ns`) decayed forward on each update. A 64-entry recent window feeds only
+  the category breakdown, never the authoritative score.
+- **TEE bindings** record a verified report digest, the signature kind (provider enclave
+  or gateway), the optional model, the image digest, the attestation nonce and a pointer
+  to the previous report digest. A gateway signature cannot claim a model.
+- **Artifact anchors** record a 32-byte digest, a typed artifact kind, an explicit
+  subject, the anchoring account and the block height and timestamp. The runtime exposes
+  no transaction hash to a contract, so the client captures it from the RPC response.
+
+The methods that implement this behavior are not in this revision; see [Status](#status).
 
 ## Architecture
 
 ```
-attestix/                  # Canonical Python package
-  main.py                  # MCP server entry point (MCP tools)
-  cli.py                   # `attestix` console script
-  config.py                # Environment-based configuration
-  errors.py                # Error handling with JSON logging
-  api/                     # FastAPI REST surface
-    main.py                # uvicorn entry: `attestix.api.main:app`
-    routers/               # REST routers
-  auth/
-    crypto.py              # Ed25519 key management
-    ssrf.py                # SSRF protection for outbound HTTP
-  services/
-    identity_service.py    # UAIT lifecycle, local data erasure
-    agent_card_service.py  # A2A agent card operations
-    did_service.py         # DID creation and resolution
-    delegation_service.py  # UCAN delegation tokens
-    reputation_service.py  # Trust scoring
-    compliance_service.py  # Operator-recorded profiles and assessment evidence
-    credential_service.py  # W3C VCs and VPs
-    provenance_service.py  # Training data, lineage, audit trail
-    blockchain_service.py  # Base L2 anchoring via EAS
-  storage/                 # Repository seam (file / memory / pg)
-  signing/                 # Signer seam (in-process / kms)
-  audit/                   # Tamper-evident event chain
-  tenancy/                 # Tenant context
-  idempotency/             # Stripe-style idempotency keys + middleware
-  blockchain/
-    merkle.py              # Merkle tree for batch anchoring
-  tools/                   # MCP tool definitions (one file per module)
+   Python surface (MCP tools, FastAPI, CLI)          Node SDK
+            |  Repository + Signer seams              |  near-api-js 7.5.3
+            v                                         v
+   +-----------------------------------------------------------------+
+   |  registry contract (near-sdk 5.30.1)                            |
+   |  registry.skjold.testnet (dev) / registry.skjold.near (mainnet)  |
+   +-----------------------------------------------------------------+
+      identity      credentials     delegation     reputation / TEE / anchors
 ```
 
-The pre-v0.4.0 flat layout (`services/`, `auth/`, `storage/`, ...) is
-preserved as deprecation shims at the same paths. They re-export from the
-canonical `attestix.*` namespace and emit a `DeprecationWarning` on first
-import. The shims are deprecated and retained in 0.5.0.
+- The **registry contract** is the owner of identity, credential, delegation, reputation,
+  TEE and anchor state. This revision defines that state and the NEP-297 event enum
+  under the `skjold-registry` standard; the methods that write it are not present yet.
+- The **Python package** keeps the origin's service layer. Its `Repository` and `Signer`
+  seams are the integration points for NEAR storage and NEAR transaction signing; no
+  NEAR adapter is wired in yet.
+- The **SDK** package is declared for Node ESM glue on near-api-js 7.5.3: key
+  management, `did:near` resolution and the zero-funds demo. The reference resolver
+  `@kaytrust/did-near-resolver` is a devDependency for the differential test only,
+  because it carries its own near-api-js 5.x tree.
 
----
+## Repository layout
 
-## MCP tools
+```
+contracts/registry/        Rust registry contract
+  Cargo.toml               package skjold-registry 0.1.0, near-sdk 5.30.1
+  src/lib.rs               contract state + #[init] new(operator)
+  src/types.rs             record, enum and event payload types
+  src/events.rs            NEP-297 "skjold-registry" event enum
+  tests/test_basics.rs     state round-trip test
+sdk/                       Node ESM package
+  package.json             name skjold-sdk; near-api-js 7.5.3
+  .nvmrc                   Node 22.22.2
+scripts/check-contract.sh  the W1 build check
+attestix/                  forked Python package (MCP / REST / CLI / services)
+api/ auth/ blockchain/     origin top-level Python modules, retained
+storage/ services/ tools/  origin top-level Python modules, retained
+spec/verify/v1/            unchanged conformance vectors
+.env.example               registry and key environment variables
+```
 
-<details>
-<summary><strong>Identity</strong></summary>
+## Status
 
-| Tool | Description |
-|------|-------------|
-| `create_agent_identity` | Create a UAIT from any identity source |
-| `resolve_identity` | Auto-detect token type and register |
-| `verify_identity` | Check existence, revocation, expiry, signature |
-| `translate_identity` | Convert to A2A, DID Document, OAuth, or summary |
-| `list_identities` | List UAITs with protocol/revocation filters |
-| `get_identity` | Get full UAIT details |
-| `revoke_identity` | Mark a UAIT as revoked |
-| `purge_agent_data` | Remove locally managed records and parseable local backups; external copies need separate handling |
+This revision is the repository and contract foundation only.
 
-</details>
+Implemented:
 
-<details>
-<summary><strong>Agent Cards</strong></summary>
+- `contracts/registry/Cargo.toml`: package `skjold-registry` 0.1.0, edition 2021,
+  `cdylib` + `rlib`, `near-sdk = "5.30.1"`, plus the pinned sandbox dev-dependencies
+  (`near-sandbox 0.4.0`, `near-api 0.8.7`, `cargo-near-build 0.11.5`).
+- `contracts/registry/src/lib.rs`: the contract state (`operator`, `agents`, `creds`,
+  `delegations`, `delegation_by_key`, `interactions`, `reputation`, `interaction_ids`,
+  `tee`, `tee_nonces`, `anchors`), one distinct storage prefix per structure, and
+  `#[init] pub fn new(operator: AccountId)`.
+- `contracts/registry/src/types.rs`: `AgentRecord`, `CredentialAnchor`,
+  `DelegationRecord`, `Interaction`, `ReputationAggregate`, `SignatureKind`,
+  `TeeBinding`, `ArtifactType`, `AnchorRecord` and the nine event payload types.
+- `contracts/registry/src/events.rs`: the `Event` enum with nine variants, each version
+  `1.0.0`.
+- `contracts/registry/tests/test_basics.rs`: constructs the state with `new`, borsh
+  serializes it, deserializes it back and checks the round trip.
+- `sdk/package.json` and `sdk/.nvmrc`, `.env.example` and `scripts/check-contract.sh`.
 
-| Tool | Description |
-|------|-------------|
-| `parse_agent_card` | Parse an A2A Agent Card JSON |
-| `generate_agent_card` | Generate agent.json for hosting |
-| `discover_agent` | Fetch `/.well-known/agent.json` from a URL |
+Not implemented in this revision:
 
-</details>
+- Contract methods. `new(operator)` is the only registry entry point; the macro-generated
+  `contract_source_metadata` view aside, there is no `create_agent`,
+  `anchor_credential`, `record_delegation`, `record_interaction`,
+  `bind_tee_attestation`, `anchor_artifact`, revocation or view method.
+- The Python NEAR adapters. `attestix/` is still the origin tree over its file-backed
+  storage; no `NearRepository`, no NEAR-backed `Signer`.
+- The SDK modules under `sdk/src/` and the demo loop.
+- Sandbox-backed tests. The only test is the state round trip.
 
-<details>
-<summary><strong>DID</strong></summary>
+The contract has not been audited by a third party.
 
-| Tool | Description |
-|------|-------------|
-| `create_did_key` | Generate ephemeral `did:key` with Ed25519 keypair |
-| `create_did_web` | Generate `did:web` DID Document for self-hosting |
-| `resolve_did` | Resolve any DID to its DID Document |
+## Build prerequisites
 
-</details>
-
-<details>
-<summary><strong>Delegation</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `create_delegation` | UCAN-style capability delegation token |
-| `verify_delegation` | Verify JWT signature, expiry, structure |
-| `list_delegations` | List delegations by agent and role |
-| `revoke_delegation` | Revoke a delegation token |
-
-</details>
-
-<details>
-<summary><strong>Reputation</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `record_interaction` | Record outcome and update trust score |
-| `get_reputation` | Get score with category breakdown |
-| `query_reputation` | Search agents by reputation criteria |
-
-</details>
-
-<details>
-<summary><strong>Compliance</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `create_compliance_profile` | Create EU AI Act profile with risk categorization |
-| `get_compliance_profile` | Retrieve full compliance profile |
-| `update_compliance_profile` | Update an existing compliance profile |
-| `get_compliance_status` | Gap analysis: completed vs missing requirements |
-| `record_conformity_assessment` | Record self or third-party assessment (Article 43) |
-| `generate_declaration_of_conformity` | Generate Annex V declaration + auto-issue VC |
-| `list_compliance_profiles` | Filter by risk category and compliance status |
-
-</details>
-
-<details>
-<summary><strong>Credentials</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `issue_credential` | Issue W3C VC with Ed25519Signature2020 proof |
-| `verify_credential` | Check signature, expiry, revocation |
-| `verify_credential_external` | Verify any VC JSON from an external source |
-| `revoke_credential` | Revoke a Verifiable Credential |
-| `get_credential` | Get full VC details |
-| `list_credentials` | Filter by agent, type, validity |
-| `create_verifiable_presentation` | Bundle VCs into a signed VP for a verifier |
-| `verify_presentation` | Verify a VP with embedded credentials |
-
-</details>
-
-<details>
-<summary><strong>Provenance</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `record_training_data` | Record training data source (Article 10) |
-| `record_model_lineage` | Record model chain and metrics (Article 11) |
-| `log_action` | Log agent action with hash-chained audit trail (Article 12) |
-| `get_provenance` | Get full provenance record |
-| `get_audit_trail` | Query audit log with filters |
-
-</details>
-
-<details>
-<summary><strong>Blockchain</strong></summary>
-
-| Tool | Description |
-|------|-------------|
-| `anchor_identity` | Anchor identity hash to Base L2 via EAS |
-| `anchor_credential` | Anchor credential hash to Base L2 via EAS |
-| `anchor_audit_batch` | Merkle batch anchor of audit log entries |
-| `verify_anchor` | Verify an on-chain anchor against local data |
-| `get_anchor_status` | Get anchoring status for an artifact |
-| `estimate_anchor_cost` | Estimate gas cost for anchoring |
-
-</details>
-
----
-
-## Standards Conformance
-
-Public tests and conformance fixtures cover selected signature, canonicalization,
-credential, delegation and interface behavior. They do not establish universal W3C
-interoperability, legal conformity, certification or operating acceptance. Consult
-the test cases and the selected verifier's documented boundaries.
-Run them yourself:
+| Requirement | Version |
+|---|---|
+| Rust | 1.95 or newer (near-sdk 5.30.1 MSRV) |
+| Wasm target | `wasm32-unknown-unknown` |
+| Node | 22.22.2 or newer (`sdk/package.json` engines) |
+| pnpm | 10.4.1 or newer |
+| Python | 3.11 or newer for the current tree; the TEE SDK port targets 3.12 |
+| cargo-near | 0.23.0 for deployment builds |
 
 ```bash
-docker build -f Dockerfile.test -t attestix-bench . && docker run --rm attestix-bench
+rustup target add wasm32-unknown-unknown
 ```
 
-| Standard | What is tested | Tests |
-|----------|---------------|:-----:|
-| **RFC 8032 (Ed25519)** | 4 IETF canonical vectors: key derivation, signature generation (exact match), verification, tamper rejection | 18 |
-| **W3C VC Data Model 1.1** | Credential structure, Ed25519Signature2020 proof, mutable field exclusion, VP structure, replay protection | 25 |
-| **W3C DID Core 1.0** | `did:key` and `did:web` document structure, roundtrip resolution, Ed25519VerificationKey2020 | 18 |
-| **UCAN v0.9.0** | JWT header (alg/typ/ucv), all payload fields, capability attenuation, expiry enforcement, revocation | 18 |
-| **MCP Protocol** | MCP tools registered, 9 modules, async convention, snake\_case naming | 5 |
-| **Performance** | Ed25519 key gen, JSON canonicalization, sign/verify, identity creation, credential ops | 7 |
+## W1 build check
 
-### Performance
+From the repository root:
 
-Benchmark results depend on interpreter, hardware, storage and workload. Run the
-repository benchmarks on your target environment; no static latency figure here is
-an operating guarantee.
-
-## Security
-
-- **Ed25519** signatures on all UAITs, VCs, assessments, declarations, and audit entries
-- **Hash-chained audit trail** with SHA-256 for tamper-evident logging
-- **SSRF protection** blocks private IPs, metadata endpoints, and DNS rebinding
-- **Encrypted key storage** with AES-256-GCM when `ATTESTIX_KEY_PASSWORD` is set
-- Private keys never exposed in tool responses
-- No external API calls required for core operations
-
----
-
-## Research Paper
-
-Attestix is described in a research paper covering system architecture, cryptographic pipeline, governance evidence workflows, and evaluation with 531 automated tests (440 functional + 91 RFC / W3C conformance benchmarks).
-
-**[Attestix: A Unified Attestation Infrastructure for Autonomous AI Agents](https://github.com/VibeTensor/attestix/blob/main/paper/attestix-paper.pdf)**
-Pavan Kumar Dubasi, VibeTensor Private Limited, 2026.
-
-### Citing Attestix
-
-If you use Attestix in your research, please cite:
-
-```bibtex
-@article{dubasi2026attestix,
-  title     = {Attestix: A Unified Attestation Infrastructure for Autonomous AI Agents},
-  author    = {Dubasi, Pavan Kumar},
-  year      = {2026},
-  url       = {https://github.com/VibeTensor/attestix},
-  note      = {Open-source. Apache License 2.0}
-}
+```bash
+bash scripts/check-contract.sh
 ```
 
----
+The script changes into `contracts/registry` and runs exactly:
 
-## Documentation
+```bash
+cargo check --target wasm32-unknown-unknown
+```
 
-Full documentation at **[attestix.io/docs](https://attestix.io/docs)**
+The state test is a normal host-target integration test:
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](https://attestix.io/docs/getting-started) | Installation and first identity in 5 minutes |
-| [EU AI Act Compliance](https://attestix.io/docs/guides/eu-ai-act-compliance) | Step-by-step compliance workflow |
-| [Risk Classification](https://attestix.io/docs/guides/risk-classification) | How to determine your AI system's risk category |
-| [Architecture](https://attestix.io/docs/guides/architecture) | System design and data flows |
-| [API Reference](https://attestix.io/docs/reference/api-reference) | MCP tools with parameter tables |
-| [Integration Guide](https://attestix.io/docs/guides/integration-guide) | LangChain, OpenAI Agents SDK, CrewAI, MCP client |
-| [Configuration](https://attestix.io/docs/reference/configuration) | Environment variables, storage, Docker |
-| [Research Paper](https://attestix.io/docs/project/research) | Paper, citation formats, evaluation highlights |
-| [Reputation Scoring](https://attestix.io/docs/guides/reputation) | Recency-weighted trust scoring and categories |
-| [Examples](https://attestix.io/docs/examples) | End-to-end code examples for common workflows |
+```bash
+cd contracts/registry
+cargo test --test test_basics
+```
 
----
+The deployable artifact, once the contract methods land, is produced with cargo-near
+0.23.0 from `contracts/registry`:
 
-## Disclaimer
+```bash
+cargo near build non-reproducible-wasm
+```
 
-Attestix generates machine-readable, cryptographically signed compliance documentation. It is a documentation and evidence tooling system. **It does not replace legal counsel, notified body assessments, or official regulatory submissions.** Always consult qualified legal professionals for compliance decisions.
+## Origin & baseline
 
----
+skjold is derived from **attestix 0.5.0**, the AI agent identity and signed-evidence
+toolkit by VibeTensor, at baseline commit `dcf823e` on `main` (2026-10-30). attestix is
+distributed under the Apache License 2.0; the `LICENSE` file is retained unchanged, and
+`NOTICE` and `ATTRIBUTION.md` record the origin and the reused components.
 
-## Sponsors
+Reused from the origin:
 
-Attestix is free and open-source. If you or your organization benefit from it, please consider sponsoring to support continued development, security audits, and infrastructure.
+- The Python MCP / FastAPI / CLI service surface and its `Repository` / `Signer` seams.
+- The Ed25519 canonical-JSON credential profile (`auth/crypto.py`) and the UCAN
+  delegation evidence.
+- The conformance vectors in `spec/verify/v1/`, unchanged.
+- The origin's Python dependency set, including `mcp[cli]`, `cryptography`, `PyJWT`,
+  `filelock`, `fastapi`, `uvicorn`, `httpx` and `anyio`.
 
-<a href="https://github.com/sponsors/VibeTensor"><img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?style=flat-square&logo=github" alt="GitHub Sponsors" /></a>
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+New in the port: the Rust registry contract (`near-sdk 5.30.1`), the Node SDK package
+declaration (`near-api-js 7.5.3`), and the NEAR environment template. The origin's
+EAS / Base anchoring code is not part of the NEAR backend.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
-
----
-
-<p align="center">
-  <a href="https://vibetensor.com">
-    <img src="https://raw.githubusercontent.com/VibeTensor/attestix/main/docs/assets/atx_gold.svg" alt="Attestix" width="48" />
-  </a>
-</p>
-
-<p align="center">
-  Built by <a href="https://vibetensor.com">VibeTensor</a>
-</p>
+Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
