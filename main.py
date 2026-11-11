@@ -1,0 +1,31 @@
+"""Legacy flat-namespace shim for :mod:`attestix.main`.
+
+This shim exists so that pre-v0.4.0-rc.2 user code that does::
+
+    python -m main
+    from main import main
+
+keeps working after the v0.4.0-rc.2 packaging fix that promoted the canonical
+location to :mod:`attestix.main`. Importing this module emits a single
+``DeprecationWarning`` directing callers at the new path.
+
+The flat-namespace shim is retained for compatibility in this release. Update to::
+
+    python -m attestix.main
+"""
+
+import warnings as _warnings
+
+_warnings.warn(
+    "Importing or running the top-level `main` module is deprecated and will be "
+    "removed in a future Attestix release. Use `python -m attestix.main` (or the "
+    "`attestix` console script) instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from attestix.main import *  # noqa: F401, F403
+from attestix.main import main  # noqa: F401
+
+if __name__ == "__main__":
+    main()

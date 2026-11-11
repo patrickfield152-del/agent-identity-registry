@@ -1,0 +1,94 @@
+---
+title: Enterprise platform architect Quickstart
+description: Run Attestix as a service behind your own ingress. Multi-tenant context, idempotent REST, hash-chained audit. Honest about what's not in v0.4.0.
+---
+
+## You're here because...
+
+You're evaluating whether Attestix can sit inside an enterprise platform as a deployable service, not a CLI. Use the runnable example and the source limitations below to assess whether this workflow meets your requirements.
+
+## 60-second install
+
+Requires Python 3.11 or later.
+
+```bash
+pip install 'attestix[api]==0.5.0'
+```
+
+Run as a service:
+
+```bash
+uvicorn attestix.api.main:app --host 0.0.0.0 --port 8000
+```
+
+Or as an MCP server over stdio for AI workloads:
+
+```bash
+python -m attestix.main
+```
+
+## First 30 lines that actually do something
+
+```python
+# A default single-tenant call against the running service.
+# Idempotency is honoured via the Idempotency-Key header (Stripe-style).
+import os, uuid
+import httpx
+
+BASE = os.environ.get("ATTESTIX_URL", "http://localhost:8000")
+
+resp = httpx.post(
+    f"{BASE}/v1/identities",
+    json={
+        "display_name": "platform-issued-agent",
+        "source_protocol": "manual",
+        "capabilities": ["data_analysis"],
+        "issuer_name": "VibeTensor",
+    },
+    headers={
+        "Idempotency-Key": str(uuid.uuid4()),
+        "X-API-Key": os.environ["ATTESTIX_API_KEY"],
+        "X-Attestix-Tenant": "default",
+    },
+    timeout=10,
+)
+resp.raise_for_status()
+agent = resp.json()
+print(agent["agent_id"], agent["issuer"]["did"])
+
+# Read from the same authenticated single-tenant service.
+trail = httpx.get(
+    f"{BASE}/v1/provenance/audit-trail/{agent['agent_id']}",
+    headers={"X-API-Key": os.environ["ATTESTIX_API_KEY"], "X-Attestix-Tenant": "default"},
+).json()
+print(len(trail), "audit rows so far")
+```
+
+## What you just got
+
+- An HTTP service exposing the 44 REST endpoints, all under a `/v1/` prefix (`/v1/identities`, `/v1/credentials`, `/v1/compliance`, `/v1/provenance/audit-trail/{id}`, `/v1/delegations`, ...), the same surface as the MCP tools.
+- An idempotency middleware: repeating the same `Idempotency-Key` returns the cached response, not a duplicate write.
+- An authenticated default single-tenant REST service. Non-default `X-Attestix-Tenant` headers are rejected; this is not cross-tenant authorization.
+
+## Next step (5 minutes)
+
+Wire structured audit shipping to your SIEM. Audit events emit as JSON lines into `audit_log.jsonl` (rotateable); the simplest path is a sidecar tailing it:
+
+```bash
+tail -F audit_log.jsonl | your-siem-shipper --type attestix
+```
+
+The deeper [architecture guide](/docs/guides/architecture) covers the service decomposition (9 services), the on-disk format, and the hash-chain layout.
+
+## Open caveats for enterprise production
+
+These are explicit gaps in v0.4.0; track them on the [roadmap](/docs/project/roadmap):
+
+| Concern | v0.4.0 reality |
+|---|---|
+| Storage | Flat JSON files. Postgres / S3 backend is planned. |
+| Signing key | `.signing_key.json`, plaintext by default. Encrypted-at-rest is opt-in via `ATTESTIX_KEY_PASSPHRASE`. KMS / HSM / Vault is planned. |
+| RBAC / IAM | The default REST surface rejects non-default tenant headers. It is not a multi-tenant authorization or IAM service. |
+| HA | Single-process. Multi-replica with shared state needs the pluggable storage backend first. |
+| Third-party security audit | None to date. |
+| Anchoring | Base L2 **testnet** only (Sepolia). Mainnet schema registration on the roadmap. |

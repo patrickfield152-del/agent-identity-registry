@@ -1,0 +1,23 @@
+---
+title: ISO/IEC 42001 evidence inputs
+description: Signed documentation inputs and their verification limits.
+---
+
+Signed records can be inputs to an organization's management-system review. Attestix does not certify or establish conformity with ISO standards.
+
+## Current source capabilities
+
+- Record agent identity, declared purpose and capabilities.
+- Issue and verify credentials within the Attestix canonical-JSON and Ed25519 profile.
+- Record provenance and operator-supplied assessment details.
+- Verify audit-chain integrity and export records for a reviewer.
+
+A signature verifies key control and content integrity within the supported profile. It does not verify organizational policies, assessor identity, operating effectiveness, physical safeguards, retention, applicability or the truth of an assertion. The local key holder can rewrite and re-sign records; independent trusted checkpoints are a separate requirement.
+
+## Operator responsibilities
+
+Select the relevant framework and scope with accountable owners. Establish issuer trust, permission and replay policy, preserve source evidence, validate controls in the deployed environment, and use qualified independent reviewers where required. Do not treat a record tag, workflow-completion flag, generated declaration or passing unit test as a control-coverage score or certification.
+
+These pages describe existing evidence functions. They do not promise future framework-specific CLI commands, automatic assessment templates or per-control coverage that is not implemented in the current release.
+
+[Framework reference](https://www.iso.org/standard/81230.html)

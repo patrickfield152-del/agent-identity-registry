@@ -1,0 +1,129 @@
+---
+title: Getting Started with Attestix
+description: Get your first AI agent identity in under 5 minutes.
+---
+
+# Getting Started with Attestix
+
+Get your first AI agent identity in under 5 minutes.
+
+<Callout title="Looking for a role-specific path?">
+The [quickstart pages](/docs/quickstart) cover 10 ICP personas (indie dev, fintech compliance, healthcare ML, enterprise architect, GRC consultant, DevTools skeptic, web3, AI safety, startup CTO, MLOps). Each is a 90-second-readable copy-paste path written against the exact pain point that persona hit in the v0.4.0 funnel evaluation.
+</Callout>
+
+## Prerequisites
+
+- Python 3.11 or later
+- pip
+
+## Installation
+
+```bash
+# Attestix 0.5.0 requires Python 3.11 or later:
+pip install attestix==0.5.0
+```
+
+Attestix 0.5.0 uses the canonical `attestix.*` namespace. The older flat layout
+(`from services... import ...`) keeps working via deprecation shims and is
+deprecated and retained in 0.5.0. See the
+[namespace migration guide](/docs/guides/migration-v0.4.0-namespace) before
+upgrading existing code.
+
+Or install from source:
+
+```bash
+git clone https://github.com/VibeTensor/attestix.git
+cd attestix
+pip install -r requirements.txt
+```
+
+## Option A: Use with Claude Code (MCP Server)
+
+Add to your Claude Code config (`~/.claude.json` on macOS/Linux, `%USERPROFILE%\.claude.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "attestix": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "attestix.main"]
+    }
+  }
+}
+```
+
+Restart Claude Code. You now have MCP tools available.
+
+Then just ask Claude:
+
+> "Create an identity for my data analysis agent with capabilities: data_analysis, report_generation"
+
+Claude will call `create_agent_identity` and return your agent's UAIT.
+
+## Option B: Use as Python Library
+
+```python
+from attestix.services.identity_service import IdentityService
+
+svc = IdentityService()
+agent = svc.create_identity(
+    display_name="MyAgent",
+    source_protocol="manual",
+    capabilities=["data_analysis", "report_generation"],
+    description="Analyzes quarterly financial data",
+    issuer_name="Acme Corp",
+)
+
+print(f"Agent ID: {agent['agent_id']}")
+print(f"DID: {agent['issuer']['did']}")
+print(f"Signed: {bool(agent['signature'])}")
+```
+
+## Option C: Run as Standalone MCP Server
+
+```bash
+cd attestix
+python -m attestix.main
+```
+
+This starts the MCP server on stdio, ready for any MCP client to connect.
+
+## What Just Happened?
+
+When you created an identity, Attestix:
+
+1. Generated a unique agent ID (e.g., `attestix:f9bdb7a94ccb40f1`)
+2. Created a Unified Agent Identity Token (UAIT) containing your agent's name, capabilities, and metadata
+3. Signed the UAIT with Ed25519 using the server's cryptographic key
+4. Stored the UAIT in `identities.json` (created automatically)
+5. Assigned a DID (Decentralized Identifier) derived from the signing key
+
+## Verify Your Agent
+
+```python
+result = svc.verify_identity(agent["agent_id"])
+print(result)
+# {
+#   "valid": true,
+#   "checks": {
+#     "exists": true,
+#     "not_revoked": true,
+#     "not_expired": true,
+#     "signature_valid": true
+#   }
+# }
+```
+
+## First-Time Setup Notes
+
+- **Signing key**: On first run, Attestix auto-generates an Ed25519 keypair stored in `.signing_key.json`. This is your server's identity. Keep it safe.
+- **Data files**: JSON files (`identities.json`, `credentials.json`, etc.) are created lazily on first use. No database setup needed.
+- **No cloud dependency**: Everything runs locally. No external API calls needed for core operations.
+
+## Next Steps
+
+- [EU AI Act Compliance Guide](/docs/guides/eu-ai-act-compliance) - Full compliance workflow
+- [Concepts Explained](/docs/reference/concepts) - What are UAITs, DIDs, VCs?
+- [API Reference](/docs/reference/api-reference) - MCP tools documented
+- [Integration Guide](/docs/guides/integration-guide) - LangChain, OpenAI Agents SDK, CrewAI integrations

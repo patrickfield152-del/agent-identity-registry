@@ -1,0 +1,32 @@
+---
+title: Attestix
+description: Attestation Infrastructure for AI Agents - the compliance identity layer for the EU AI Act era.
+---
+
+# Attestix
+
+Attestix is a Python toolkit for agent identity, credentials, delegation, provenance and signed evidence. Use its library, CLI, MCP or REST interfaces and the language-specific verifier repositories.
+
+## Current main source
+
+The readiness changes are merged to main. Registry publication and hosted deployment are separate events; pin the source or package revision you have reviewed.
+
+- Credential checks bind the supported issuer and proof controller and reject ambiguous NFC-normalized keys.
+- Presentations require the caller's expected challenge and domain. Trust and replay policy remain caller responsibilities.
+- `workflow_complete` checks recorded documentation presence. `legal_conformity` remains `not_assessed`; declarations are drafts for provider review.
+- The default REST service requires authentication and rejects non-default tenant headers. Local storage locking is not complete distributed-service acceptance.
+- Local purge handles managed records and parseable local backups; it does not erase external copies.
+
+## Application timeline
+
+The AI Act applies in stages, depending on the system and operator role. Current dates include 2 December 2027 for specified Annex III high-risk systems and 2 August 2028 for specified Annex I systems embedded in regulated products. See the [current European Commission timeline](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai).
+
+Attestix does not establish legal conformity, certification, issuer trust or the truth of recorded claims.
+
+## Get started
+
+- [Installation and interfaces](/docs/getting-started)
+- [Governance evidence workflow](/docs/guides/eu-ai-act-compliance)
+- [API identifiers and verification boundaries](/docs/reference/api-reference)
+- [Storage and authentication configuration](/docs/reference/configuration)
+- [Language-specific verifier limits](/docs/verifiers)

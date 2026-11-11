@@ -1,0 +1,271 @@
+---
+title: Troubleshooting
+description: Common errors and solutions when working with Attestix
+---
+
+## Installation Issues
+
+### `pip install attestix==0.5.0` fails with dependency conflicts
+
+```
+ERROR: Cannot install attestix because these package versions have conflicting dependencies.
+```
+
+**Solution:** Use a virtual environment to isolate dependencies:
+
+```bash
+python -m venv attestix-env
+source attestix-env/bin/activate  # Linux/macOS
+attestix-env\Scripts\activate     # Windows
+pip install attestix==0.5.0
+```
+
+### Python version error
+
+```
+ERROR: Package 'attestix' requires Python >=3.11
+```
+
+**Solution:** Attestix requires Python 3.11 or later. Check your version with `python --version` and upgrade if needed.
+
+---
+
+## MCP Server Issues
+
+### Claude Code cannot find the MCP server
+
+```
+Error: MCP server "attestix" failed to start
+```
+
+**Possible causes:**
+
+1. **Wrong Python path** - Use the full path to your Python executable:
+   ```json
+   {
+     "mcpServers": {
+       "attestix": {
+         "type": "stdio",
+         "command": "/usr/bin/python3",
+         "args": ["/full/path/to/attestix/main.py"]
+       }
+     }
+   }
+   ```
+
+2. **Virtual environment not activated** - If Attestix is installed in a venv, point to that Python:
+   ```json
+   {
+     "command": "/path/to/venv/bin/python"
+   }
+   ```
+
+3. **Missing dependencies** - Run `pip install -r requirements.txt` in the Attestix directory.
+
+### Tools not showing up in Claude Code
+
+**Solution:** Restart Claude Code after updating the MCP config. Run `/mcp` to verify the server is connected and showing MCP tools.
+
+---
+
+## Identity Issues
+
+### "Identity not found" when verifying
+
+```json
+{
+  "valid": false,
+  "checks": { "exists": false }
+}
+```
+
+**Cause:** The agent ID does not exist in `identities.json`. This can happen if:
+- The identity was created in a different working directory (Attestix uses local JSON files)
+- Its managed local records were erased; revocation alone retains the identity record
+- You're using a different Attestix instance
+
+**Solution:** Check `identities.json` in your working directory. Create a new identity if needed.
+
+### Signature verification fails
+
+```json
+{
+  "valid": false,
+  "checks": { "signature_valid": false }
+}
+```
+
+**Cause:** The signing key has changed since the identity was created. This happens when:
+- `.signing_key.json` was deleted or replaced
+- You moved the Attestix data files to a different machine
+- The identity was created by a different Attestix instance
+
+**Solution:** Verify supported signed records against the appropriate public key or DID under an explicit trusted-key policy. The private signing key is needed to create new signatures, not to verify existing signatures. Keep private signing keys protected rather than copying them to verifier machines.
+
+---
+
+## Credential Issues
+
+### "Credential has been revoked"
+
+```json
+{
+  "valid": false,
+  "checks": { "not_revoked": false }
+}
+```
+
+**Cause:** The credential was explicitly revoked via `revoke_credential`. Revocation is permanent.
+
+**Solution:** Issue a new credential with `issue_credential`.
+
+### Ed25519Signature2020 verification fails externally
+
+**Cause:** External verifiers may expect different canonicalization or proof semantics. Attestix uses a constrained custom canonical JSON profile with NFC normalization; it does not claim strict RFC 8785 conformance or arbitrary numeric equivalence across languages.
+
+**Solution:** Use a verifier that supports the documented Attestix credential and canonicalization profile. Check the supported proof and key representation, trusted issuer policy and unsupported-input rejection. Shared fixtures do not establish identical trust or revocation policy across verifiers.
+
+---
+
+## Compliance Issues
+
+### Self-assessment blocked for high-risk system
+
+```json
+{
+  "error": "High-risk systems in Annex III categories require third-party assessment"
+}
+```
+
+This error reflects a configured workflow restriction, not a legal determination. Applicable assessment routes depend on the system, classification, operator role and relevant requirements. Recording an assessment does not establish that the assessor is authorized or that conformity has been achieved. Determine the applicable route separately before recording evidence:
+
+```python
+compliance_svc.record_conformity_assessment(
+    agent_id=agent_id,
+    assessment_type="third_party",  # example only; separately determine the route
+    assessor_name="Example assessor - placeholder",
+    result="pass",  # example assertion; requires independently reviewed evidence
+)
+```
+
+### Compliance status shows missing items
+
+```json
+{
+  "compliant": false,
+  "completion_pct": 60.0,
+  "missing": ["conformity_assessment", "declaration_of_conformity"]
+}
+```
+
+**Solution:** Follow the steps in the [EU AI Act Compliance Guide](/docs/guides/eu-ai-act-compliance). The typical workflow is:
+
+1. Create identity
+2. Record training data (Article 10)
+3. Record model lineage (Article 11)
+4. Create compliance profile
+5. Record conformity assessment
+6. Generate a provider-review declaration draft
+
+The `compliant` field and completion percentage describe workflow records, not legal conformity or certification. Review generated drafts with an accountable provider or assessor.
+
+---
+
+## Blockchain Issues
+
+### "No RPC URL configured"
+
+```
+Error: ATTESTIX_BASE_RPC_URL environment variable not set
+```
+
+**Solution:** Set the Base L2 testnet RPC URL in your environment. Attestix anchors to Base Sepolia today; mainnet support ships once the mainnet schema is registered.
+
+```bash
+export ATTESTIX_BASE_RPC_URL="https://sepolia.base.org"
+```
+
+Or use a provider like Alchemy:
+
+```bash
+export ATTESTIX_BASE_RPC_URL="https://base-sepolia.g.alchemy.com/v2/YOUR_KEY"
+```
+
+See the [Configuration](/docs/reference/configuration) page for all environment variables.
+
+### Transaction fails with "insufficient funds"
+
+**Cause:** Blockchain anchoring requires a small amount of testnet ETH on Base Sepolia for gas fees (free from public faucets).
+
+**Solution:** Fund the wallet associated with `ATTESTIX_WALLET_PRIVATE_KEY` with testnet ETH on Base Sepolia. Public faucets include the Coinbase Base faucet and the Alchemy Sepolia faucet.
+
+### Anchoring is optional
+
+Local identity, credential, governance-evidence and provenance workflows can operate without blockchain anchoring. Network integrations and external status or trust checks have separate connectivity requirements. Omitting anchoring does not establish complete evidence capture or legal conformity.
+
+---
+
+## Delegation Issues
+
+### "Capability not in parent scope"
+
+```json
+{
+  "error": "Cannot delegate capabilities not held by issuer"
+}
+```
+
+**Cause:** When chaining delegations, the child delegation cannot grant capabilities that the parent delegation does not have.
+
+**Solution:** Only delegate capabilities that are a subset of what the issuing agent has been granted:
+
+```python
+# Parent has: ["data_access", "reporting"]
+# Child can delegate at most: ["data_access", "reporting"]
+# Child CANNOT delegate: ["admin", "delete"]
+```
+
+### Delegation expired
+
+```json
+{
+  "valid": false,
+  "checks": { "not_expired": false }
+}
+```
+
+**Cause:** UCAN delegations are time-bounded. The `expiry_hours` parameter sets the lifetime.
+
+**Solution:** Create a new delegation with `create_delegation`. Consider using longer expiry times if appropriate for your use case.
+
+---
+
+## Data and Storage
+
+### Where does Attestix store data?
+
+By default, Attestix creates JSON files in the current working directory:
+- `identities.json` - Agent identity tokens
+- `credentials.json` - Verifiable credentials
+- `delegations.json` - UCAN delegation tokens
+- `provenance.json` - Audit trail entries
+- `reputation.json` - Interaction records
+- `.signing_key.json` - Ed25519 keypair (keep this safe)
+
+### How do I back up my data?
+
+Back up managed records and protect the signing key if continued signing and issuer continuity are required. Existing signatures can be checked using the corresponding public key under the verifier's trust policy; verification does not require the private signing key. Validate restore behavior separately.
+
+### How do I reset everything?
+
+Delete the JSON data files (but NOT `.signing_key.json` unless you want a completely fresh start). Attestix will recreate empty files on next use.
+
+---
+
+## Getting Help
+
+If your issue is not covered here:
+
+1. Check the [FAQ](/docs/reference/faq) for general questions
+2. Search [GitHub Issues](https://github.com/VibeTensor/attestix/issues)
+3. Open a new issue with your error message and environment details

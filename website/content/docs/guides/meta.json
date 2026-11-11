@@ -1,0 +1,17 @@
+{
+  "title": "Guides",
+  "pages": [
+    "eu-ai-act-compliance",
+    "eu-compliance-walkthrough",
+    "risk-classification",
+    "reputation",
+    "integration-guide",
+    "langchain",
+    "openai-agents-sdk",
+    "crewai",
+    "offline-verify",
+    "base-l2-anchor",
+    "migration-v0.4.0-namespace",
+    "migration-npm-rename"
+  ]
+}
