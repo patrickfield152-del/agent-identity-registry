@@ -1,4 +1,4 @@
-"""Compliance service for Attestix.
+"""Compliance service for skjold.
 
 EU AI Act compliance profiles, conformity assessments (Article 43),
 and declarations of conformity (Annex V).

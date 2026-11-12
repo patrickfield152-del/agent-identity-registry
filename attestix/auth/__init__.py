@@ -1,4 +1,4 @@
-"""Attestix auth - re-exports from flat module for namespace compatibility.
+"""skjold auth - cryptographic utilities and SSRF protection.
 
 Modules:
     - crypto: Ed25519 key management, signing, verification
@@ -6,7 +6,7 @@ Modules:
     - token_parser: Identity token parsing utilities
 """
 
-# Re-export all from the flat auth module via relative imports
+# Re-export the public crypto helpers
 from .crypto import (
     canonicalize_json,
     did_key_fragment,

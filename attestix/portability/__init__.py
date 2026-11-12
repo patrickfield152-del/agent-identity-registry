@@ -1,10 +1,9 @@
-"""OSS-side portability layer for Attestix bundles.
+"""OSS-side portability layer for skjold bundles.
 
-This package implements the consumer side of the cloud M6 portability bundle
-format (``https://attestix.io/spec/bundle/v1``) — the round-trip partner of
-``attestix-cloud/apps/workers/ts/src/exports.ts``. A bundle is a USTAR + gzip
-tarball containing one JCS-canonical JSONL file per table, a ``manifest.json``,
-and a side-car ``manifest.sha256``.
+This package implements the skjold portability bundle format
+(``urn:skjold:bundle:v1``). A bundle is a USTAR + gzip tarball containing one
+JCS-canonical JSONL file per table, a ``manifest.json``, and a side-car
+``manifest.sha256``.
 
 Public surface:
 
@@ -17,8 +16,7 @@ Public surface:
 
 The reader DOES NOT introduce a second JCS canonicaliser: it reuses
 ``attestix.auth.crypto.canonicalize_json``, the same helper the OSS signer and
-audit-event chain depend on. The cloud exporter uses the equivalent JS routine,
-so manifest re-hashes match across implementations.
+audit-event chain depend on, so manifest re-hashes match across implementations.
 """
 
 from attestix.portability.bundle_reader import (

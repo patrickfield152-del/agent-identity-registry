@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the cross-language verifier conformance vectors for Attestix.
+"""Generate the cross-language verifier conformance vectors for skjold.
 
 This script emits ``vectors.json`` next to itself. Every vector is produced
-from the REAL ``attestix`` 0.4.0 crypto primitives (``attestix.auth.crypto`` +
+from the REAL ``skjold`` 0.4.0 crypto primitives (``attestix.auth.crypto`` +
 the service layer), so the vectors are authoritative: any port (Go, Rust, Java,
 R, JS) that reproduces the same booleans/bytes is byte-compatible with the
 reference Python verifier.
@@ -19,7 +19,7 @@ Run:
     python spec/verify/v1/generate_vectors.py
     # writes spec/verify/v1/vectors.json
 
-The script does NOT reimplement any crypto. It only *drives* attestix and
+The script does NOT reimplement any crypto. It only *drives* skjold and
 records inputs + expected outputs.
 """
 
@@ -32,7 +32,7 @@ from pathlib import Path
 import jwt
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-# --- REAL attestix crypto (do not reimplement) -----------------------------
+# --- REAL skjold crypto (do not reimplement) -----------------------------
 from attestix.auth.crypto import (
     ED25519_MULTICODEC_PREFIX,
     canonicalize_json,
@@ -55,7 +55,7 @@ ISSUER_SEED_HEX = (
 )
 # A second fixed seed for the delegation child (audience) key, used only so the
 # child has a stable DID in the chain vectors (the chain is signed by the SERVER
-# key, matching attestix DelegationService which signs all tokens with one key).
+# key, matching skjold DelegationService which signs all tokens with one key).
 CHILD_SEED_HEX = (
     "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6f3"
 )
@@ -66,7 +66,7 @@ def hexbytes(h: str) -> bytes:
 
 
 def b64u_pad(raw: bytes) -> str:
-    """base64url WITH padding (matches attestix sign_json_payload output)."""
+    """base64url WITH padding (matches skjold sign_json_payload output)."""
     return base64.urlsafe_b64encode(raw).decode("ascii")
 
 
@@ -81,7 +81,7 @@ def build_issuer():
 def vec_canonicalize():
     """JCS-canonical bytes of a deliberately tricky object.
 
-    Exercises: key sorting by codepoint, raw UTF-8 (no \\uXXXX), NFC
+    Exercises: key sorting by codepoint, raw UTF-8 (no \\u escape sequences), NFC
     normalization, whole-number float -> int, nested objects, arrays,
     booleans, null, integers.
     """
@@ -110,7 +110,7 @@ def vec_canonicalize():
             "JCS-style canonicalization. A port's canonicaliser MUST produce "
             "byte-identical output to canonical_bytes_hex. Note NFC composition "
             "of 'cafe'+U+0301 -> 'café', whole_float 1.0 -> 1, keys sorted "
-            "by Unicode codepoint, raw UTF-8 (no \\uXXXX escapes)."
+            "by Unicode codepoint, raw UTF-8 (no \\u escape sequences)."
         ),
         "input": obj,
         "expected": {
@@ -293,7 +293,7 @@ def vec_vc_expired(priv, pub, did):
 
 
 # --- UCAN delegation chain vectors -----------------------------------------
-# attestix DelegationService signs EVERY token (root and child) with the single
+# skjold DelegationService signs EVERY token (root and child) with the single
 # SERVER key using PyJWT EdDSA (alg=EdDSA). The signed message is the JWT compact
 # form: base64url(header) + "." + base64url(payload). This is NOT the JCS path.
 # We reproduce that here with the same fixed key so ports can verify the JWT.
@@ -318,7 +318,7 @@ def _make_token(priv, did, *, jti, aud, delegator, att, prf):
         "att": att,
         "delegator": delegator,
         "prf": prf,
-        "attestix_version": "0.1.0",
+        "skjold_version": "0.1.0",
         "typ": "ucan/delegation",
     }
     token = jwt.encode(
@@ -435,13 +435,13 @@ def main():
     vectors.append(bad_chain)
 
     doc = {
-        "spec": "attestix-verify-conformance",
+        "spec": "skjold-verify-conformance",
         "version": "v1",
         "generator": "spec/verify/v1/generate_vectors.py",
-        "attestix_version": __import__("attestix").__version__,
+        "skjold_version": __import__("attestix").__version__,
         "description": (
             "Authoritative cross-language verifier conformance vectors, "
-            "generated from the real attestix crypto. Every port (Go, Rust, "
+            "generated from the real skjold crypto. Every port (Go, Rust, "
             "Java, R, JS) MUST reproduce the 'expected' values. See README.md "
             "for the exact canonical-form rules and CONFORMANCE.md for the "
             "verifier surface."

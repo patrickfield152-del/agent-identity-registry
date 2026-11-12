@@ -1,4 +1,4 @@
-"""Compliance MCP tools for Attestix (7 tools).
+"""Compliance MCP tools for skjold (7 tools).
 
 EU AI Act compliance profiles, conformity assessments, and declarations.
 """
@@ -34,7 +34,7 @@ def register(mcp):
         Categorizes the AI system by risk level and tracks all compliance obligations.
 
         Args:
-            agent_id: The Attestix agent ID (e.g., attestix:abc123...).
+            agent_id: The skjold agent ID (e.g., skjold:abc123...).
             risk_category: EU AI Act risk level: minimal, limited, or high.
             provider_name: Name of the AI system provider/company.
             intended_purpose: What the AI system is designed to do.
@@ -89,7 +89,7 @@ def register(mcp):
         Only non-empty fields will be updated.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
             intended_purpose: Updated purpose description.
             transparency_obligations: Updated transparency info.
             human_oversight_measures: Updated human oversight info.
@@ -113,7 +113,7 @@ def register(mcp):
         """Get the EU AI Act compliance profile for an agent.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
         """
         from attestix.services.cache import get_service
         from attestix.services.compliance_service import ComplianceService
@@ -132,7 +132,7 @@ def register(mcp):
         evidence quality, and conformity are not assessed by this tool.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
         """
         from attestix.services.cache import get_service
         from attestix.services.compliance_service import ComplianceService
@@ -153,11 +153,11 @@ def register(mcp):
         """Record a conformity assessment for EU AI Act Article 43.
 
         Stores the provider's assessment record; assessor authority and legal
-        conformity are not verified by Attestix. Assessment procedure rules
+        conformity are not verified by skjold. Assessment procedure rules
         depend on the profile's recorded classification.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
             assessment_type: self or third_party.
             assessor_name: Name of the assessor or notified body.
             result: Assessment result: pass, conditional, or fail.
@@ -187,7 +187,7 @@ def register(mcp):
         generation nor a valid signature establishes legal conformity.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
         """
         from attestix.services.cache import get_service
         from attestix.services.compliance_service import (

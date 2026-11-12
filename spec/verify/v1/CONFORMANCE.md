@@ -1,8 +1,8 @@
-# Attestix Verifier Conformance Suite (v1)
+# skjold Verifier Conformance Suite (v1)
 
 A port (Go, Rust, Java, R, JS, …) is **conformant** when it passes every vector
 in [`vectors.json`](./vectors.json). The vectors are generated from the real
-attestix 0.4.0 crypto by [`generate_vectors.py`](./generate_vectors.py), so they
+skjold 0.4.0 crypto by [`generate_vectors.py`](./generate_vectors.py), so they
 are authoritative. The exact canonical-form rules a port must reproduce are in
 [`README.md`](./README.md) — read it first.
 
@@ -44,7 +44,7 @@ Each entry in `vectors[]`:
 ```
 
 Top-level: `issuer_did`, `issuer_pubkey_raw_hex`, `issuer_seed_hex` (the fixed
-seed), `attestix_version`, `vector_count`.
+seed), `skjold_version`, `vector_count`.
 
 ## The 7 vectors
 
@@ -81,7 +81,7 @@ attenuation logic. A JS port therefore passes this suite.
 ## Regenerating
 
 ```bash
-pip install attestix==0.4.0     # or use the local dev tree
+pip install skjold==0.4.0     # or use the local dev tree
 python spec/verify/v1/generate_vectors.py
 ```
 

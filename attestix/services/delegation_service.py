@@ -1,4 +1,4 @@
-"""UCAN-style delegation service for Attestix.
+"""UCAN-style delegation service for skjold.
 
 Creates, verifies, and manages JWT-based delegation tokens
 following the UCAN (User Controlled Authorization Networks) pattern
@@ -111,7 +111,7 @@ class DelegationService:
                 "att": capabilities,
                 "delegator": issuer_agent_id,
                 "prf": [parent_token] if parent_token else [],
-                "attestix_version": "0.1.0",
+                "skjold_version": "0.1.0",
                 "typ": "ucan/delegation",
             }
 

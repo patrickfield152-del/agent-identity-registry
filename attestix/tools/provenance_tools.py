@@ -1,4 +1,4 @@
-"""Provenance MCP tools for Attestix (5 tools).
+"""Provenance MCP tools for skjold (5 tools).
 
 Training data provenance, model lineage, and Article 12 audit trail.
 """
@@ -29,7 +29,7 @@ def register(mcp):
         """Record a training data source for EU AI Act Article 10 compliance.
 
         Args:
-            agent_id: The Attestix agent ID (e.g., attestix:abc123...).
+            agent_id: The skjold agent ID (e.g., skjold:abc123...).
             dataset_name: Name of the training dataset.
             source_url: URL or location of the dataset.
             license: Data license (e.g., CC-BY-4.0, proprietary).
@@ -68,7 +68,7 @@ def register(mcp):
         """Record model lineage chain for EU AI Act Article 11 compliance.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
             base_model: Base model name (e.g., claude-opus-4-6, gpt-4).
             base_model_provider: Model provider (e.g., Anthropic, OpenAI).
             fine_tuning_method: Fine-tuning approach if any (LoRA, full, RLHF, none).
@@ -106,7 +106,7 @@ def register(mcp):
         """Log an agent action for EU AI Act Article 12 automatic logging.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
             action_type: One of: inference, delegation, data_access, external_call.
             input_summary: Brief description of the input/request.
             output_summary: Brief description of the output/response.
@@ -132,7 +132,7 @@ def register(mcp):
         """Get full provenance record for an agent (training data, model lineage, audit summary).
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
         """
         from attestix.services.cache import get_service
         from attestix.services.provenance_service import ProvenanceService
@@ -152,7 +152,7 @@ def register(mcp):
         """Query the Article 12 audit trail with optional filters.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
             action_type: Filter by type (inference, delegation, data_access, external_call). Empty = all.
             start_date: ISO date string for start of range (e.g., 2026-01-01T00:00:00).
             end_date: ISO date string for end of range.

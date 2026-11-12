@@ -1,11 +1,10 @@
-"""Attestix blockchain - re-exports from flat module for namespace compatibility.
+"""skjold blockchain helpers.
 
 Modules:
-    - merkle: Merkle tree construction for batch anchoring
-    - abi: EAS contract ABI definitions
+    - merkle: Merkle tree construction for audit-batch anchoring
 """
 
-# Re-export from the flat blockchain module via relative imports
+# Re-export the Merkle helpers used for batch roots.
 from .merkle import (
     build_merkle_tree,
     compute_merkle_root,
@@ -13,16 +12,10 @@ from .merkle import (
     hash_pair,
 )
 
-from .abi import EAS_ABI, SCHEMA_REGISTRY_ABI
-
-# Re-export submodules for namespace access
-from . import abi
+# Re-export the submodule for namespace access.
 from . import merkle
 
 __all__ = [
-    "EAS_ABI",
-    "SCHEMA_REGISTRY_ABI",
-    "abi",
     "build_merkle_tree",
     "compute_merkle_root",
     "hash_leaf",

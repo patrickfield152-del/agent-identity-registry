@@ -1,18 +1,15 @@
-"""Write Attestix portability bundles (the OSS-side symmetric counterpart).
+"""Write skjold portability bundles (the OSS-side symmetric counterpart).
 
 The :func:`write_bundle` helper is the inverse of
 :mod:`attestix.portability.importer`: it reads every OSS-side collection through
 the existing :class:`~attestix.storage.Repository` boundary, projects each row
-into the cloud wire-format shape the importer expects, JCS-canonicalises every
-row, sha-256s every table, and emits a USTAR + gzip tarball whose layout matches
-``apps/workers/ts/src/exports.ts`` byte-for-byte.
+into the wire-format shape the importer expects, JCS-canonicalises every row,
+sha-256s every table, and emits a USTAR + gzip tarball whose layout matches the
+importer byte-for-byte.
 
-Why a separate writer and not a method on the Repository? Because the cloud
-exporter is the authoritative wire-format definition (the spec page at
-``https://attestix.io/spec/bundle/v1`` describes its output); the OSS exporter
-mirrors that spec so cloud bundles and OSS bundles are interchangeable. Pinning
-that mirror to one module keeps the wire-format coupling auditable in code
-review — change the cloud exporter and you must change this file in lock-step.
+Why a separate writer and not a method on the Repository? The
+``urn:skjold:bundle:v1`` format is the authoritative wire-format definition and
+this module is its only writer, so the format stays auditable in code review.
 
 JCS canonicaliser
 -----------------
@@ -54,7 +51,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from attestix import __version__ as ATTESTIX_VERSION
+from attestix import __version__ as SKJOLD_VERSION
 from attestix.auth.crypto import canonicalize_json
 from attestix.portability.bundle_reader import (
     BUNDLE_FORMAT_URL,
@@ -66,10 +63,10 @@ from attestix.storage.repository import DEFAULT_TENANT
 
 
 #: The cloud-equivalent core_version stamp. Mirrors the cloud worker's
-#: ``CORE_VERSION_PIN`` format ("attestix==<semver>") so a reader cannot tell a
+#: ``CORE_VERSION_PIN`` format ("skjold==<semver>") so a reader cannot tell a
 #: well-formed OSS export apart from a well-formed cloud export by version
 #: shape alone — both round-trip through the same import path.
-CORE_VERSION = f"attestix=={ATTESTIX_VERSION}"
+CORE_VERSION = f"skjold=={SKJOLD_VERSION}"
 
 
 class BundleWriteError(Exception):
@@ -569,7 +566,7 @@ def write_bundle(
     # ---- Stage 2: build manifest + compute its sha-256 ---------------------
     manifest = {
         "manifest_version": SUPPORTED_MANIFEST_VERSION,
-        "attestix_bundle_format": BUNDLE_FORMAT_URL,
+        "skjold_bundle_format": BUNDLE_FORMAT_URL,
         "workspace": {
             "id": workspace_id,
             "slug": workspace_slug,

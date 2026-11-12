@@ -30,7 +30,7 @@
 // keys are never logged. A failed step throws and exits non-zero; the demo never
 // reports success without the real contract calls below.
 import { randomBytes, randomUUID } from "node:crypto";
-import { sleep } from "node:timers/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import {
   Account,
@@ -365,7 +365,7 @@ async function waitForIdentity(provider, registryId, agentId, expectedDigest, cr
 async function expectDelegationRefusal(fckAccount, registryId, args) {
   let rejection;
   try {
-    const result = await submit(fckAccount, registryId, "anchor_artifact", args, GROWTH_DEPOSIT);
+    const result = await submit(fckAccount, registryId, "anchor_artifact", args, 0n);
     const failure = executionFailure(result.outcome);
     if (!failure) {
       throw new RefusalNotObserved(

@@ -1,8 +1,8 @@
-"""OpenAI Agents SDK audit hook for Attestix.
+"""OpenAI Agents SDK audit hook for skjold.
 
 Unlike LangChain (which exposes a callback class) the OpenAI Agents SDK
 already speaks MCP natively. The hook below is a small helper that wraps
-the common pattern of "log every guardrail decision to the Attestix audit
+the common pattern of "log every guardrail decision to the skjold audit
 chain" so callers do not have to re-implement it.
 
 The hook deliberately does NOT import the ``agents`` SDK at module import
@@ -18,11 +18,11 @@ from attestix.services.identity_service import IdentityService
 from attestix.services.provenance_service import ProvenanceService
 
 
-class AttestixAuditHook:
-    """Log Agent guardrail / tool decisions to the Attestix audit chain.
+class skjoldAuditHook:
+    """Log Agent guardrail / tool decisions to the skjold audit chain.
 
     Args:
-        agent_id: Existing Attestix agent_id. If ``None`` a fresh identity
+        agent_id: Existing skjold agent_id. If ``None`` a fresh identity
             is created with ``display_name`` / ``issuer_name``.
         display_name: Display name for auto-created identity.
         issuer_name: Issuer name for auto-created identity.

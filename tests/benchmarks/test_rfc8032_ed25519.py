@@ -1,6 +1,6 @@
 """RFC 8032 Section 7.1 - Ed25519 canonical test vectors.
 
-Validates that Attestix's Ed25519 wrapper functions (sign/verify/key derivation)
+Validates that skjold's Ed25519 wrapper functions (sign/verify/key derivation)
 produce results identical to the IETF reference vectors.
 """
 

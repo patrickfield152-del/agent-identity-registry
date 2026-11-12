@@ -1,4 +1,4 @@
-"""Reputation and trust scoring service for Attestix.
+"""Reputation and trust scoring service for skjold.
 
 Records agent interactions and computes recency-weighted trust scores
 with exponential decay (30-day half-life).
@@ -33,7 +33,7 @@ class ReputationService:
 
     #: Actor recorded on reputation audit events. Reputation has no signer/server
     #: DID of its own, so the service identifies itself as the actor.
-    AUDIT_ACTOR = "attestix:reputation-service"
+    AUDIT_ACTOR = "skjold:reputation-service"
 
     def __init__(
         self,

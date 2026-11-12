@@ -63,7 +63,7 @@ def signer(request) -> Signer:
     """A fresh Signer implementation per parametrized run.
 
     InProcessSigner picks up the temp signing-key path via the autouse
-    ``tmp_attestix`` fixture in conftest.
+    ``tmp_skjold`` fixture in conftest.
     """
     return SIGNER_FACTORIES[request.param]()
 

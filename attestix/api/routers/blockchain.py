@@ -1,7 +1,7 @@
 """Blockchain router - REST endpoints wrapping BlockchainService.
 
 Anchors cryptographic hashes of off-chain artifacts (UAITs, VCs, audit log
-batches) to Base L2 via Ethereum Attestation Service (EAS).
+batches) in the skjold registry contract on NEAR.
 """
 
 import logging
@@ -52,9 +52,9 @@ def anchor_identity(
     bc_svc: BlockchainService = Depends(get_blockchain_service),
     id_svc: IdentityService = Depends(get_identity_service),
 ):
-    """Anchor an agent identity (UAIT) hash to Base L2 via EAS.
+    """Anchor an agent identity (UAIT) hash in the skjold registry on NEAR.
 
-    Computes SHA-256 of the full identity record and submits an on-chain attestation.
+    Computes SHA-256 of the full identity record and submits a registry transaction.
     """
     identity = id_svc.get_identity(body.agent_id)
     if not identity:
@@ -78,9 +78,9 @@ def anchor_credential(
     bc_svc: BlockchainService = Depends(get_blockchain_service),
     cred_svc: CredentialService = Depends(get_credential_service),
 ):
-    """Anchor a Verifiable Credential hash to Base L2 via EAS.
+    """Anchor a Verifiable Credential hash in the skjold registry on NEAR.
 
-    Computes SHA-256 of the full VC and submits an on-chain attestation.
+    Computes SHA-256 of the full VC and submits a registry transaction.
     """
     credential = cred_svc.get_credential(body.credential_id)
     if not credential:

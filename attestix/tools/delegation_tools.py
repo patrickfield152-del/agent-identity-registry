@@ -1,4 +1,4 @@
-"""Delegation MCP tools for Attestix (4 tools)."""
+"""Delegation MCP tools for skjold (4 tools)."""
 
 import json
 
@@ -16,8 +16,8 @@ def register(mcp):
         """Create a UCAN-style delegation token granting capabilities from one agent to another.
 
         Args:
-            issuer_agent_id: The agent granting capabilities (Attestix agent ID).
-            audience_agent_id: The agent receiving capabilities (Attestix agent ID).
+            issuer_agent_id: The agent granting capabilities (skjold agent ID).
+            audience_agent_id: The agent receiving capabilities (skjold agent ID).
             capabilities: Comma-separated list of capabilities to delegate.
             expiry_hours: Hours until the delegation expires (default 24).
         """

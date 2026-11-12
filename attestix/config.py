@@ -1,4 +1,4 @@
-"""Configuration management for Attestix MCP server."""
+"""Configuration management for skjold MCP server."""
 
 import json
 import os
@@ -17,14 +17,14 @@ from filelock import FileLock
 
 PROJECT_DIR = Path(__file__).parent
 
-# Data directory: use ATTESTIX_DATA_DIR env var, or ~/.attestix/ by default.
+# Data directory: use SKJOLD_DATA_DIR env var, or ~/.skjold/ by default.
 # This ensures fresh installs start with empty data (no demo artifacts)
 # and avoids writing into the package install location (site-packages).
-_data_dir_env = os.environ.get("ATTESTIX_DATA_DIR")
+_data_dir_env = os.environ.get("SKJOLD_DATA_DIR")
 if _data_dir_env:
     DATA_DIR = Path(_data_dir_env)
 else:
-    DATA_DIR = Path.home() / ".attestix"
+    DATA_DIR = Path.home() / ".skjold"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 ENV_FILE = PROJECT_DIR / ".env"
@@ -41,7 +41,7 @@ ANCHORS_FILE = DATA_DIR / "anchors.json"
 AUDIT_FILE = DATA_DIR / "audit.json"
 IDEMPOTENCY_FILE = DATA_DIR / "idempotency.json"
 BLOCKCHAIN_CONFIG_FILE = DATA_DIR / ".blockchain_config.json"
-LOG_FILE = DATA_DIR / "attestix_errors.log"
+LOG_FILE = DATA_DIR / "skjold_errors.log"
 SIGNING_KEY_FILE = DATA_DIR / ".signing_key.json"
 
 load_dotenv(ENV_FILE)
@@ -63,9 +63,8 @@ NEAR_DEFAULT_RPC_URLS = {
     "mainnet": "https://rpc.mainnet.near.org",
 }
 
-# skjold registry configuration (canonical names; the origin EVM names are not
-# aliased). Setting SKJOLD_REGISTRY_ID switches the default Repository to
-# NearRepository.
+# skjold registry configuration (canonical names). Setting SKJOLD_REGISTRY_ID
+# switches the default Repository to NearRepository.
 NEAR_NETWORK = (_get_env("NEAR_NETWORK", default="testnet") or "testnet").strip().lower()
 NEAR_RPC_URL = _get_env(
     "NEAR_RPC_URL",

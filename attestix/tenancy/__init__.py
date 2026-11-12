@@ -1,4 +1,4 @@
-"""Tenant context for Attestix (v0.4.0 extensibility layer, US2 / P2).
+"""Tenant context for skjold (v0.4.0 extensibility layer, US2 / P2).
 
 This package introduces the ambient :class:`TenantContext` and the
 ``DEFAULT_TENANT`` sentinel so the engine can be operated multi-tenant without

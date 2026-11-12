@@ -1,4 +1,4 @@
-"""Ed25519 cryptographic operations for Attestix.
+"""Ed25519 cryptographic operations for skjold.
 
 Handles key generation, signing, verification, and did:key creation.
 """
@@ -143,7 +143,7 @@ def _get_key_encryption_key() -> Optional[bytes]:
         from cryptography.hazmat.primitives import hashes
         # Use a fixed salt derived from the application name.
         # This is acceptable because the password provides entropy.
-        salt = b"attestix-signing-key-v1"
+        salt = b"skjold-signing-key-v1"
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -272,7 +272,7 @@ def load_or_create_signing_key(
     key_data = {
         "did_key": did,
         "algorithm": "Ed25519",
-        "note": "Attestix server signing key. Do NOT share.",
+        "note": "skjold server signing key. Do NOT share.",
     }
 
     if fernet_key:
@@ -350,7 +350,7 @@ def _normalize_for_signing(obj):
 
 
 def canonicalize_json(payload: dict) -> bytes:
-    """Produce Attestix canonical JSON, including NFC normalization.
+    """Produce skjold canonical JSON, including NFC normalization.
 
     This custom format differs from strict RFC 8785. Ambiguous object keys and
     non-finite numbers are rejected rather than silently losing signed claims.

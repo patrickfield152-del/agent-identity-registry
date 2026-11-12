@@ -1,4 +1,4 @@
-"""Service instance cache with TTL for Attestix.
+"""Service instance cache with TTL for skjold.
 
 Reuses the pattern from productivity-mcp: singleton service instances
 with a configurable time-to-live to avoid stale state.
@@ -26,7 +26,7 @@ def get_service(
         **kwargs: Passed to the constructor if creating a new instance. This is
             the v0.4.0 dependency-injection seam: a deployment can inject an
             alternate backend, e.g. ``get_service(IdentityService,
-            signer=my_kms_signer)`` or a service that accepts a ``repository=``,
+            signer=my_signer)`` or a service that accepts a ``repository=``,
             and distinguish it from the default with a non-"default"
             ``instance_id``. With no kwargs, services construct their defaults
             (in-process Ed25519 signer + file storage), reproducing v0.3.0

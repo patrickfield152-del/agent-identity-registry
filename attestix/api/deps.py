@@ -1,4 +1,4 @@
-"""Dependency injection for Attestix API services.
+"""Dependency injection for skjold API services.
 
 Provides FastAPI dependency functions that return cached singleton
 service instances via the shared service cache.

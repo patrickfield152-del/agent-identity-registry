@@ -1,10 +1,8 @@
-"""Attestix - Attestation Infrastructure for AI Agents.
+"""skjold - Attestation Infrastructure for AI Agents.
 
-Canonical, installable namespace package. v0.4.0-rc.2 promoted all source
-modules into the ``attestix.*`` namespace so a ``pip install attestix`` wheel
-no longer drops flat top-level packages (``services/``, ``auth/``, ``storage/``,
-...) into site-packages. The pre-rc.2 flat imports keep working via thin
-deprecation shims and are retained for compatibility in this release.
+Canonical, installable namespace package. Python sources live under the
+retained ``attestix.*`` namespace; the distribution and console script are
+``skjold``.
 
 Canonical import paths (recommended)::
 
@@ -18,9 +16,9 @@ Modules:
     - attestix.services: Identity, credentials, compliance, delegation, reputation, provenance
     - attestix.tools: MCP tool definitions (47 tools across 9 modules)
     - attestix.auth: Cryptographic utilities (Ed25519, SSRF protection)
-    - attestix.blockchain: Merkle trees and EAS anchoring
-    - attestix.storage: Pluggable persistence (Repository seam, file / memory / pg)
-    - attestix.signing: Pluggable signing (Signer seam, in-process / kms)
+    - attestix.blockchain: Merkle trees for audit-batch anchoring
+    - attestix.storage: Pluggable persistence (Repository seam, file / memory / near)
+    - attestix.signing: Pluggable signing (Signer seam, in-process)
     - attestix.audit: Tamper-evident audit event chain
     - attestix.tenancy: Tenant context / DEFAULT_TENANT
     - attestix.idempotency: Stripe-style idempotency keys + middleware

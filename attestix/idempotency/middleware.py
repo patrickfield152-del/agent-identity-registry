@@ -6,13 +6,13 @@ existing middleware pattern in ``api/main.py`` (``APIKeyMiddleware`` /
 ``RateLimitMiddleware``). It is the documented *primary* boundary for idempotency
 (T046: REST-first, with the store + helper usable from MCP/direct callers too).
 
-Status — NOT auto-mounted (deliberate, see TODO in ``api/main.py``):
+Status — NOT auto-mounted (deliberate):
 
 Mounting body-reading middleware on the live app changes request-stream handling
 for every endpoint and must be validated against the full REST test surface before
 it ships on by default. To keep the v0.4.0 P2/P3 slice green and additive (FR-024),
-this middleware is provided as an importable, tested component and the wiring seam
-in ``api/main.py`` carries a clear TODO. An operator (or the cloud) can opt in with
+this middleware is provided as an importable component and the wiring seam in
+``api/main.py`` is left explicit. An operator can opt in with
 ``app.add_middleware(IdempotencyMiddleware)`` today; the default app is unchanged
 (no key → exact v0.3.0 behavior, FR-022).
 

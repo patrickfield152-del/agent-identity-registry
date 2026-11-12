@@ -1,4 +1,4 @@
-"""Idempotency keys for Attestix (v0.4.0 extensibility layer, US3 / P3).
+"""Idempotency keys for skjold (v0.4.0 extensibility layer, US3 / P3).
 
 A client-supplied idempotency key makes a write replay-safe for 24 hours
 (Stripe-style): a retried request returns the original result instead of creating

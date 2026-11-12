@@ -1,4 +1,4 @@
-"""Attestix services.
+"""skjold services.
 
 Identity, credentials, compliance, delegation, reputation, provenance,
 agent cards, blockchain anchoring, DID operations.
@@ -11,7 +11,7 @@ Services:
     - ReputationService: Trust scoring
     - ProvenanceService: Training data, lineage, audit trails
     - AgentCardService: A2A agent card operations
-    - BlockchainService: EAS anchoring on Base L2
+    - BlockchainService: registry anchoring on NEAR
     - DIDService: DID document operations
 """
 

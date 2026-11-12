@@ -1,8 +1,8 @@
 """NEAR registry anchoring service for skjold.
 
 Anchors artifact digests (UAITs, credential digests, audit Merkle roots,
-compliance declarations) in the skjold registry contract. There is no EVM,
-Ethereum attestation, schema UIDs and EVM keys are absent from this port.
+compliance declarations) in the skjold registry contract. No external
+attestation service, schema registry or EVM keys are involved.
 
 Semantics:
 

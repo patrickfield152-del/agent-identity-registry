@@ -1,4 +1,4 @@
-"""Token type detection and JWT parsing for Attestix.
+"""Token type detection and JWT parsing for skjold.
 
 Identifies whether an input string is a JWT, DID, URL, API key, or unknown,
 and extracts claims from JWTs without verification (for identity bridging).

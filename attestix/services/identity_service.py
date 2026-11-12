@@ -1,4 +1,4 @@
-"""Core identity service for Attestix.
+"""Core identity service for skjold.
 
 Manages Unified Agent Identity Tokens (UAITs): create, read, list,
 revoke, verify, and sign operations.
@@ -115,7 +115,7 @@ class IdentityService:
                 expiry_days=expiry_days,
             )
 
-        agent_id = f"attestix:{uuid.uuid4().hex[:16]}"
+        agent_id = f"skjold:{uuid.uuid4().hex[:16]}"
         now = datetime.now(timezone.utc)
         exp_days = expiry_days if expiry_days is not None else DEFAULT_EXPIRY_DAYS
         expires_at = (now + timedelta(days=exp_days)).isoformat()
@@ -653,7 +653,7 @@ class IdentityService:
                 "description": f"Capability: {cap}",
             })
 
-        agent_url = f"attestix://{agent['agent_id']}"
+        agent_url = f"did:near:{agent['agent_id']}"
         return {
             "id": hashlib.sha256(agent["agent_id"].encode()).hexdigest()[:16],
             "name": agent["display_name"],
@@ -668,7 +668,7 @@ class IdentityService:
             "endpoints": [
                 {
                     "url": f"{agent_url}/tasks",
-                    "protocol": "attestix",
+                    "protocol": "a2a",
                     "method": "POST",
                 }
             ],
@@ -676,10 +676,10 @@ class IdentityService:
                 "organization": agent["issuer"].get("name", ""),
             },
             "authentication": {
-                "schemes": ["attestix-uait"],
+                "schemes": ["skjold-uait"],
                 "credentials": agent["agent_id"],
             },
-            "_attestix_metadata": {
+            "_skjold_metadata": {
                 "agent_id": agent["agent_id"],
                 "source_protocol": agent.get("source_protocol"),
                 "reputation_score": agent.get("reputation_score"),
@@ -688,7 +688,7 @@ class IdentityService:
 
     def _to_did_document(self, agent: dict) -> dict:
         """Convert UAIT to W3C DID Document format."""
-        did = agent["issuer"].get("did", f"did:attestix:{agent['agent_id']}")
+        did = agent["issuer"].get("did", f"did:near:{agent['agent_id']}")
         # Get public key multibase for the server DID
         pub_multibase = None
         if did.startswith("did:key:z"):
@@ -723,8 +723,8 @@ class IdentityService:
             "authentication": [f"{did}{fragment}"],
             "service": [
                 {
-                    "id": f"{did}#attestix",
-                    "type": "AttestixIdentity",
+                    "id": f"{did}#skjold",
+                    "type": "SkjoldIdentity",
                     "serviceEndpoint": {
                         "agent_id": agent["agent_id"],
                         "display_name": agent["display_name"],
@@ -738,12 +738,12 @@ class IdentityService:
         """Convert UAIT to OAuth 2.0 token claims."""
         return {
             "sub": agent["agent_id"],
-            "iss": agent["issuer"].get("did", "attestix"),
+            "iss": agent["issuer"].get("did", "skjold"),
             "name": agent["display_name"],
             "scope": " ".join(agent.get("capabilities", [])),
             "iat": agent.get("created_at"),
             "exp": agent.get("expires_at"),
-            "attestix_version": agent.get("version"),
+            "skjold_version": agent.get("version"),
             "source_protocol": agent.get("source_protocol"),
         }
 

@@ -82,7 +82,7 @@ def _tenant_of(record: dict) -> str:
     return record.get("tenant_id", DEFAULT_TENANT)
 
 
-#: Recognized durability modes (``durability`` arg / ``ATTESTIX_DURABILITY`` env).
+#: Recognized durability modes (``durability`` arg / ``SKJOLD_DURABILITY`` env).
 DURABILITY_SAFE = "safe"
 DURABILITY_FAST = "fast"
 _DURABILITY_MODES = (DURABILITY_SAFE, DURABILITY_FAST)
@@ -90,7 +90,7 @@ _DURABILITY_MODES = (DURABILITY_SAFE, DURABILITY_FAST)
 
 def _resolve_durability(durability: Optional[str]) -> str:
     """Resolve the effective durability mode (arg > env > ``safe`` default)."""
-    choice = durability or os.environ.get("ATTESTIX_DURABILITY") or DURABILITY_SAFE
+    choice = durability or os.environ.get("SKJOLD_DURABILITY") or DURABILITY_SAFE
     choice = str(choice).strip().lower()
     if choice not in _DURABILITY_MODES:
         raise ValueError(
@@ -137,7 +137,7 @@ class FileRepository(Repository):
       not be used by REST servers or multiple processes/repository instances.
 
     Select ``"fast"`` per instance (``FileRepository(durability="fast")``) or
-    process-wide via ``ATTESTIX_DURABILITY=fast``.
+    process-wide via ``SKJOLD_DURABILITY=fast``.
     """
 
     def __init__(self, durability: Optional[str] = None) -> None:

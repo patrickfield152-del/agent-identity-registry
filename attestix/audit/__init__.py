@@ -1,4 +1,4 @@
-"""Structured audit events for Attestix (v0.4.0 extensibility layer, US2 / P2).
+"""Structured audit events for skjold (v0.4.0 extensibility layer, US2 / P2).
 
 This package emits one tamper-evident :class:`AuditEvent` per committed state
 change, chained with the same ``prev_hash`` / ``chain_hash`` / genesis pattern as

@@ -1,4 +1,4 @@
-"""Credential MCP tools for Attestix (8 tools).
+"""Credential MCP tools for skjold (8 tools).
 
 W3C Verifiable Credentials (VC Data Model 1.1) issuance and verification.
 """
@@ -27,7 +27,7 @@ def register(mcp):
         """Issue a W3C Verifiable Credential with Ed25519Signature2020 proof.
 
         Args:
-            agent_id: The Attestix agent ID this credential is about.
+            agent_id: The skjold agent ID this credential is about.
             credential_type: Credential type (e.g., EUAIActComplianceCredential, AgentIdentityCredential).
             issuer_name: Name of the issuing authority.
             claims_json: JSON string of credential claims (e.g., {"compliant": true, "risk_level": "high"}).
@@ -193,7 +193,7 @@ def register(mcp):
         Creates a signed VP that an agent can present to a verifier to prove compliance.
 
         Args:
-            agent_id: The Attestix agent ID (holder/presenter).
+            agent_id: The skjold agent ID (holder/presenter).
             credential_ids: Comma-separated credential URNs to include.
             audience_did: DID of the intended verifier (optional).
             challenge: Nonce provided by the verifier for replay protection (optional).

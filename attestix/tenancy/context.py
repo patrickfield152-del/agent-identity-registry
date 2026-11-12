@@ -15,7 +15,7 @@ from attestix.storage.repository import DEFAULT_TENANT
 
 #: The header the default resolver reads to map an HTTP request to a tenant.
 #: Integrators/cloud may ignore it and inject their own resolution.
-TENANT_HEADER = "X-Attestix-Tenant"
+TENANT_HEADER = "X-Skjold-Tenant"
 
 
 @dataclass(frozen=True)

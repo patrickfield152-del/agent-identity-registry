@@ -1,6 +1,6 @@
-"""Attestix CLI - Command-line interface for AI agent attestation infrastructure.
+"""skjold CLI - Command-line interface for AI agent attestation infrastructure.
 
-Wraps core Attestix services for interactive use: identity management,
+Wraps core skjold services for interactive use: identity management,
 compliance checks, audit trails, credential operations, and system status.
 """
 
@@ -68,9 +68,9 @@ def _header(msg):
 
 
 @click.group()
-@click.version_option(package_name="attestix")
+@click.version_option(package_name="skjold")
 def cli():
-    """Attestix - Attestation Infrastructure for AI Agents.
+    """skjold - Attestation Infrastructure for AI Agents.
 
     Manage agent identities, compliance profiles, credentials, and
     audit trails from the command line.
@@ -78,7 +78,7 @@ def cli():
 
 
 # ---------------------------------------------------------------------------
-# attestix init
+# skjold init
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -124,7 +124,7 @@ def init(name, protocol, description, capabilities, identity_token, issuer, expi
 
 
 # ---------------------------------------------------------------------------
-# attestix verify
+# skjold verify
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -164,7 +164,7 @@ def verify(agent_id, as_json):
 
 
 # ---------------------------------------------------------------------------
-# attestix compliance
+# skjold compliance
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -248,7 +248,7 @@ def compliance(agent_id, create_profile, risk_category, provider_name, intended_
 
 
 # ---------------------------------------------------------------------------
-# attestix audit
+# skjold audit
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -290,15 +290,14 @@ def audit(agent_id, action_type, limit):
         click.echo()
 
     # Verify hash chain integrity.
-    # TODO(v0.5.0): this CLI re-verifies a ProvenanceService action-log chain
-    # (different row shape than `attestix.audit.AuditEvent`): keys are
+    # This CLI re-verifies a ProvenanceService action-log chain (different row
+    # shape than `attestix.audit.AuditEvent`): keys are
     # `log_id`/`action_type`/`timestamp` rather than `event_id`/`action`/
     # `occurred_at`. Routing it through `attestix.audit.verify_chain` would
     # require projecting these rows into the AuditEvent shape, which is more
-    # work than just emitting the existing inline diagnostics here. Tracked
-    # in the e2e walkthrough (P1 #4) — for now this stays inline; the
-    # structured forensic upgrade lives on `attestix.audit.verify_chain` and
-    # is surfaced via the portability importer.
+    # work than the inline diagnostics emitted below; the structured forensic
+    # upgrade lives on `attestix.audit.verify_chain` and is surfaced via the
+    # portability importer.
     genesis_hash = "0" * 64
     chain_ok = True
     for i, entry in enumerate(entries):
@@ -330,7 +329,7 @@ def audit(agent_id, action_type, limit):
 
 
 # ---------------------------------------------------------------------------
-# attestix credential
+# skjold credential
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -348,13 +347,13 @@ def credential(do_issue, cred_id_to_verify, do_list, cred_id_to_revoke, agent_id
 
     Examples:
 
-        attestix credential --issue --agent-id attestix:abc123 --issuer "Acme Corp"
+        skjold credential --issue --agent-id skjold:abc123 --issuer "Acme Corp"
 
-        attestix credential --verify-cred urn:uuid:some-id
+        skjold credential --verify-cred urn:uuid:some-id
 
-        attestix credential --list --agent-id attestix:abc123
+        skjold credential --list --agent-id skjold:abc123
 
-        attestix credential --revoke urn:uuid:some-id
+        skjold credential --revoke urn:uuid:some-id
     """
     svc = get_service(CredentialService)
 
@@ -466,7 +465,7 @@ def credential(do_issue, cred_id_to_verify, do_list, cred_id_to_revoke, agent_id
 
 
 # ---------------------------------------------------------------------------
-# attestix status
+# skjold status
 # ---------------------------------------------------------------------------
 
 @cli.command()
@@ -475,7 +474,7 @@ def status(as_json):
     """Show system status: data directory, version, and resource counts."""
     # Version
     try:
-        ver = pkg_version("attestix")
+        ver = pkg_version("skjold")
     except PackageNotFoundError:
         try:
             from attestix import __version__
@@ -484,7 +483,7 @@ def status(as_json):
             ver = "unknown"
 
     if not as_json:
-        _header("Attestix System Status")
+        _header("skjold System Status")
         click.echo(f"  Version    : {ver}")
         click.echo(f"  Data dir   : {DATA_DIR}")
         click.echo()
@@ -508,7 +507,7 @@ def status(as_json):
 
     # Audit chain (v0.4.0+) is persisted in audit.json with schema
     # {"events": [...]}. Previously this read provenance.json["audit_log"],
-    # which silently reported 0 after every `attestix import` because the
+    # which silently reported 0 after every `skjold import` because the
     # importer writes to audit.json.
     audit_data: dict = {}
     if AUDIT_FILE.exists():
@@ -544,7 +543,7 @@ def status(as_json):
 
 
 # ---------------------------------------------------------------------------
-# attestix list
+# skjold list
 # ---------------------------------------------------------------------------
 
 @cli.command(name="list")
@@ -614,7 +613,7 @@ def list_identities(protocol, include_revoked, limit, risk_category, name_contai
 
 
 # ---------------------------------------------------------------------------
-# attestix import (M6 portability bundle ingest)
+# skjold import (M6 portability bundle ingest)
 # ---------------------------------------------------------------------------
 
 @cli.command(name="import")
@@ -623,11 +622,11 @@ def list_identities(protocol, include_revoked, limit, risk_category, name_contai
 @click.option("--workspace", default=None, help="Target local workspace label (defaults to the bundle's workspace slug).")
 @click.option("--verify-only", is_flag=True, help="Verify bundle integrity (manifest + per-table sha + chain) and report; do not write.")
 def import_cmd(bundle_path, force, workspace, verify_only):
-    """Import an Attestix portability bundle (M6 cloud export) into local OSS storage.
+    """Import an skjold portability bundle (M6 cloud export) into local OSS storage.
 
     Reads the gzipped USTAR bundle at BUNDLE_PATH, verifies the manifest +
     per-table SHA-256 + audit-chain end-to-end, and writes every row into the
-    local Attestix storage (``~/.attestix/``) through the v0.4.0 Repository
+    local skjold storage (``~/.skjold/``) through the v0.4.0 Repository
     boundary. By default the command refuses if any local identities,
     credentials, or audit events already exist; pass --force to override.
     """
@@ -654,13 +653,13 @@ def import_cmd(bundle_path, force, workspace, verify_only):
         summary = importer.local_data_summary()
         non_empty = [f"{k}={v}" for k, v in summary.items() if v]
         _error(
-            "local Attestix storage is not empty ("
+            "local skjold storage is not empty ("
             + ", ".join(non_empty)
             + "). Re-run with --force to import alongside the existing rows, or "
             + "with --verify-only to inspect the bundle without writing."
         )
 
-    _header(f"Attestix bundle: {bundle.path.name}")
+    _header(f"skjold bundle: {bundle.path.name}")
     click.echo(f"  Format       : {bundle.bundle_format}")
     click.echo(f"  Manifest ver : {bundle.manifest_version}")
     click.echo(f"  Workspace    : {bundle.workspace.get('slug', '?')} ({bundle.workspace.get('id', '?')})")
@@ -712,13 +711,13 @@ def import_cmd(bundle_path, force, workspace, verify_only):
     _success(f"\nImport complete. {result.total_written} rows written under tenant {result.target_tenant!r}.")
     click.echo()
     _header("Next steps")
-    click.echo("  attestix list                # see imported identities")
-    click.echo("  attestix audit <agent_id>    # verify the imported audit chain")
-    click.echo("  attestix status              # confirm aggregate counts")
+    click.echo("  skjold list                # see imported identities")
+    click.echo("  skjold audit <agent_id>    # verify the imported audit chain")
+    click.echo("  skjold status              # confirm aggregate counts")
 
 
 # ---------------------------------------------------------------------------
-# attestix export (OSS portability bundle export)
+# skjold export (OSS portability bundle export)
 # ---------------------------------------------------------------------------
 
 @cli.command(name="export")
@@ -751,12 +750,12 @@ def import_cmd(bundle_path, force, workspace, verify_only):
     help="Suppress the per-table progress lines (JSON-only summary at the end).",
 )
 def export_cmd(output_path, workspace, include_anchors, include_audit, force, no_pretty):
-    """Export local OSS state as an Attestix portability bundle (M6-compatible).
+    """Export local OSS state as an skjold portability bundle (M6-compatible).
 
     Writes a USTAR + gzip tarball at OUTPUT_PATH containing one JCS-canonical
     JSONL file per table, a ``manifest.json``, and a side-car
     ``manifest.sha256`` — the exact format the cloud worker emits and the
-    importer (``attestix import``) accepts.
+    importer (``skjold import``) accepts.
 
     The output is byte-stable across re-runs against the same OSS state:
     members are sorted alphabetically, tar mtimes are pinned to 0, and the
@@ -774,7 +773,7 @@ def export_cmd(output_path, workspace, include_anchors, include_audit, force, no
         )
 
     if not no_pretty:
-        _header(f"Attestix export → {out}")
+        _header(f"skjold export → {out}")
         if workspace:
             click.echo(f"  Workspace filter : {workspace}")
         else:

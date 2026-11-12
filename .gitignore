@@ -32,25 +32,17 @@ anchors.json
 
 # Logs
 *.log
-attestix_errors.log
+skjold_errors.log
 
-# MkDocs build output
-site/
-
-# Next.js build output
-website/.next/
-website/out/
-website/public/og-image.png
-
-# Distribution
+# Distribution and dependencies
 dist/
 build/
+node_modules/
+target/
 
 # IDE
 .vscode/
 .idea/
-
-# Claude Code
 .claude/
 
 # Cloudflare Wrangler
@@ -65,42 +57,9 @@ build/
 *.fdb_latexmk
 *.synctex.gz
 
-# Source templates (used to scaffold website, no longer needed)
-magicuidesign-devtool-template/
-magicuidesign-agent-template/
-
-# Paper marketing assets (social thumbnails, outreach drafts)
-paper/*.html
-paper/*.png
-paper/outreach.txt
-paper/producthunt-draft.txt
-paper/attestix-arxiv.tar.gz
-paper/linkedin-*.txt
-paper/social-posts.txt
-
-# Website test artifacts
-website/mermaid-test*.png
-website/test_*.py
-
-# Internal strategy docs (research, meetings, roadmap, funding)
-paper/internal/
-
-# Firecrawl scrape cache
-.firecrawl/
-
-# Interactive demo (local presentations only)
-demo/interactive/
-demo/agentic/
-
 # Windows shell artifacts
 nul
 
-# persona-review run artifacts — embed injected internal business context (revenue, personal, investor names). Never commit, especially to the public OSS repo. Audit trail is preserved in each spec.md "Persona-Review Remediation" section.
-specs/**/reviews/
-**/reviews/
-
 # NEAR contract build output
 contracts/registry/target/
-target/
-node_modules/
 .near-credentials/

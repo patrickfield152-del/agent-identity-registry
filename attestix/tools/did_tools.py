@@ -1,4 +1,4 @@
-"""DID operation MCP tools for Attestix (3 tools)."""
+"""DID operation MCP tools for skjold (3 tools)."""
 
 import json
 
@@ -37,7 +37,7 @@ def register(mcp):
 
     @mcp.tool()
     async def create_did_web(domain: str, path: str = "") -> str:
-        """Deprecated: did:web hosting was removed in the NEAR port.
+        """Deprecated: web DID hosting was removed in the NEAR port.
 
         Returns the compatibility response with a did:near redirect; it never
         produces a hosting URL.

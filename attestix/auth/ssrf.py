@@ -1,4 +1,4 @@
-"""SSRF protection utilities for Attestix.
+"""SSRF protection utilities for skjold.
 
 Validates hostnames and resolved IPs against private/reserved ranges
 before making outbound HTTP requests. Returns pinned IPs to prevent

@@ -1,4 +1,4 @@
-"""Credential service for Attestix.
+"""Credential service for skjold.
 
 Issues, verifies, and manages W3C Verifiable Credentials (VC Data Model 1.1)
 with Ed25519Signature2020 proofs.

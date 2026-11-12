@@ -1,4 +1,4 @@
-"""Identity management MCP tools for Attestix (7 tools)."""
+"""Identity management MCP tools for skjold (7 tools)."""
 
 import json
 
@@ -88,7 +88,7 @@ def register(mcp):
         """Verify a UAIT: check existence, revocation, expiry, and signature.
 
         Args:
-            agent_id: The Attestix agent ID (e.g., attestix:abc123...).
+            agent_id: The skjold agent ID (e.g., skjold:abc123...).
         """
         from attestix.services.cache import get_service
         from attestix.services.identity_service import IdentityService
@@ -105,7 +105,7 @@ def register(mcp):
         """Convert a UAIT to another identity format.
 
         Args:
-            agent_id: The Attestix agent ID to translate.
+            agent_id: The skjold agent ID to translate.
             target_format: One of: a2a_agent_card, did_document, oauth_claims, summary.
         """
         from attestix.services.cache import get_service
@@ -146,7 +146,7 @@ def register(mcp):
         """Get full UAIT details for a specific agent.
 
         Args:
-            agent_id: The Attestix agent ID.
+            agent_id: The skjold agent ID.
         """
         from attestix.services.cache import get_service
         from attestix.services.identity_service import IdentityService
@@ -162,7 +162,7 @@ def register(mcp):
         """Revoke a UAIT, marking it as no longer valid.
 
         Args:
-            agent_id: The Attestix agent ID to revoke.
+            agent_id: The skjold agent ID to revoke.
             reason: Why this identity is being revoked.
         """
         from attestix.services.cache import get_service
@@ -183,7 +183,7 @@ def register(mcp):
         irreversible. Blockchain anchors are immutable and cannot be purged.
 
         Args:
-            agent_id: The Attestix agent ID to purge.
+            agent_id: The skjold agent ID to purge.
         """
         err = _validate_required({"agent_id": agent_id})
         if err:

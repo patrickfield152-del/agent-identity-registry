@@ -114,7 +114,7 @@ def _decode_jwt(token, public_key):
 
 def test_manifest_has_the_seven_expected_vectors():
     assert MANIFEST["version"] == "v1"
-    assert MANIFEST["spec"] == "attestix-verify-conformance"
+    assert MANIFEST["spec"] == "skjold-verify-conformance"
     assert MANIFEST["vector_count"] == 7
     assert len(VECTORS) == 7
 
@@ -191,7 +191,7 @@ def test_vc_vector_signature_and_verdict(vector_id):
 
     signature_valid = verify_signature(public_key, signature, canonical)
     assert signature_valid is expected["signature_valid"]
-    # The same verdict through the attestix helper (canonicalizes internally).
+    # The same verdict through the skjold helper (canonicalizes internally).
     assert (
         verify_json_signature(public_key, payload, vector["signature_b64url"])
         is expected["signature_valid"]

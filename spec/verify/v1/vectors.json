@@ -1,16 +1,16 @@
 {
-  "attestix_version": "0.4.0",
-  "description": "Authoritative cross-language verifier conformance vectors, generated from the real attestix crypto. Every port (Go, Rust, Java, R, JS) MUST reproduce the 'expected' values. See README.md for the exact canonical-form rules and CONFORMANCE.md for the verifier surface.",
+  "skjold_version": "0.4.0",
+  "description": "Authoritative cross-language verifier conformance vectors, generated from the real skjold crypto. Every port (Go, Rust, Java, R, JS) MUST reproduce the 'expected' values. See README.md for the exact canonical-form rules and CONFORMANCE.md for the verifier surface.",
   "generator": "spec/verify/v1/generate_vectors.py",
   "issuer_did": "did:key:z6Mko5TBPGKHkCxSgmf3aC6p6SGj2auwCfRmBydXJFEwL4ev",
   "issuer_pubkey_raw_hex": "8022fe847be6106443a4030d74d390c8d9a91319b9f51526bc7c3d88a27c9b7b",
   "issuer_seed_hex": "9d61b19deffdeaf3ee2cd05c0fc7d1bbf2b6c5e4e6b3d2c1a0f9e8d7c6b5a4f3",
-  "spec": "attestix-verify-conformance",
+  "spec": "skjold-verify-conformance",
   "vector_count": 7,
   "vectors": [
     {
       "canonical_bytes_hex": "7b22615f6669727374223a6e756c6c2c22617272223a5b312c2274776f222c66616c73652c6e756c6c2c7b226b223a2276227d5d2c226269675f696e74223a393030373139393235343734303939332c22656d7074795f617272223a5b5d2c22656d7074795f6f626a223a7b7d2c226e65675f696e74223a2d34322c226e6573746564223a7b2261223a312c2262223a322c2264656570223a7b2278223a227a222c2279223a5b332c322c315d7d7d2c226e66635f74657374223a22636166c3a9222c227265616c5f666c6f6174223a312e352c22756e69636f6465223a2268c3a96c6c6f20c3a920e2988320f09f9880222c2277686f6c655f666c6f6174223a312c227a5f6c617374223a747275657d",
-      "description": "JCS-style canonicalization. A port's canonicaliser MUST produce byte-identical output to canonical_bytes_hex. Note NFC composition of 'cafe'+U+0301 -> 'café', whole_float 1.0 -> 1, keys sorted by Unicode codepoint, raw UTF-8 (no \\uXXXX escapes).",
+      "description": "JCS-style canonicalization. A port's canonicaliser MUST produce byte-identical output to canonical_bytes_hex. Note NFC composition of 'cafe'+U+0301 -> 'café', whole_float 1.0 -> 1, keys sorted by Unicode codepoint, raw UTF-8 (no \\u escape sequences).",
       "expected": {
         "canonical_utf8": "{\"a_first\":null,\"arr\":[1,\"two\",false,null,{\"k\":\"v\"}],\"big_int\":9007199254740993,\"empty_arr\":[],\"empty_obj\":{},\"neg_int\":-42,\"nested\":{\"a\":1,\"b\":2,\"deep\":{\"x\":\"z\",\"y\":[3,2,1]}},\"nfc_test\":\"café\",\"real_float\":1.5,\"unicode\":\"héllo é ☃ 😀\",\"whole_float\":1,\"z_last\":true}"
       },

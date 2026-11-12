@@ -6,8 +6,8 @@ class TestRecordInteraction:
 
     def test_records_and_returns_score(self, reputation_service):
         result = reputation_service.record_interaction(
-            agent_id="attestix:bot1",
-            counterparty_id="attestix:bot2",
+            agent_id="skjold:bot1",
+            counterparty_id="skjold:bot2",
             outcome="success",
         )
         assert result["recorded"] is True
@@ -15,8 +15,8 @@ class TestRecordInteraction:
 
     def test_invalid_outcome(self, reputation_service):
         result = reputation_service.record_interaction(
-            agent_id="attestix:bot1",
-            counterparty_id="attestix:bot2",
+            agent_id="skjold:bot1",
+            counterparty_id="skjold:bot2",
             outcome="invalid_outcome",
         )
         assert "error" in result
@@ -35,7 +35,7 @@ class TestGetReputation:
     """Tests for retrieving reputation scores with category breakdowns."""
 
     def test_no_interactions(self, reputation_service):
-        result = reputation_service.get_reputation("attestix:unknown")
+        result = reputation_service.get_reputation("skjold:unknown")
         assert result["trust_score"] is None
         assert result["total_interactions"] == 0
 

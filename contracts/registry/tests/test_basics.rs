@@ -20,6 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use near_api::types::transaction::actions::{AccessKeyPermission, FunctionCallPermission};
+use near_api::types::transaction::result::TransactionResult;
 use near_api::types::Data;
 use near_api::{
     signer::generate_secret_key, Account, AccountId, Contract, NearToken, NetworkConfig, SecretKey,
@@ -171,6 +172,39 @@ async fn call_ok(
     Ok(())
 }
 
+/// Send a state-changing contract call, require the transaction to succeed, and
+/// return the total gas burnt across the transaction and its receipts, in gas units.
+async fn call_ok_measured(
+    contract: &Contract,
+    network: &NetworkConfig,
+    signer_id: &AccountId,
+    signer: &Arc<Signer>,
+    method: &str,
+    args: Value,
+    deposit: NearToken,
+) -> TestResult<u64> {
+    let outcome = contract
+        .call_function(method, args)
+        .transaction()
+        .max_gas()
+        .deposit(deposit)
+        .with_signer(signer_id.clone(), signer.clone())
+        .send_to(network)
+        .await
+        .map_err(|error| std::io::Error::other(format!("{method}: send failed: {error}")))?;
+    let gas_burnt = match &outcome {
+        TransactionResult::Full(full) => full.total_gas_burnt.as_gas(),
+        TransactionResult::Pending { status } => {
+            return Err(std::io::Error::other(format!(
+                "{method}: transaction still pending after send ({status:?})"
+            ))
+            .into())
+        }
+    };
+    outcome.assert_success();
+    Ok(gas_burnt)
+}
+
 /// Send a state-changing call that the contract is expected to reject.
 async fn call_fails(
     contract: &Contract,
@@ -305,7 +339,7 @@ async fn registry_flow_end_to_end() -> TestResult {
 
     // --- anchor_credential (operator/issuer) ------------------------------
     let cid = vec![9u8; 32];
-    call_ok(
+    let anchor_credential_gas = call_ok_measured(
         &contract,
         &network,
         &operator.id,
@@ -321,6 +355,10 @@ async fn registry_flow_end_to_end() -> TestResult {
         growth_deposit(),
     )
     .await?;
+    println!(
+        "MEASURED_ANCHOR_CREDENTIAL_TGAS={:.3}",
+        anchor_credential_gas as f64 / 1e12
+    );
     let valid: bool = view(
         &contract,
         &network,
@@ -511,6 +549,36 @@ async fn registry_flow_end_to_end() -> TestResult {
         "reputation view timestamp is populated"
     );
 
+    // Insufficient credit: an oversized record costs more than the 50 mN credit.
+    let huge_id = "x".repeat(60_000);
+    let credit_refused = call_fails(
+        &contract,
+        &network,
+        &agent_id,
+        &fck_signer,
+        "anchor_artifact",
+        json!({
+            "artifact_digest": vec![9u8; 32],
+            "artifact_type": "Declaration",
+            "artifact_id": huge_id,
+            "subject_account": &agent_id,
+        }),
+        NearToken::from_yoctonear(0),
+    )
+    .await?;
+    assert!(credit_refused, "oversized anchor must fail on insufficient credit");
+    let credit_after_refusal: u128 = view::<String>(
+        &contract,
+        &network,
+        "get_storage_credit",
+        json!({ "agent": &agent_id }),
+    )
+    .await?
+    .parse()?;
+    assert_eq!(
+        credit_after_refusal, credit_after_anchor,
+        "a refused anchor must not debit credit"
+    );
     // --- revoke_delegation: next FCK call is refused ----------------------
     call_ok(
         &contract,
@@ -559,36 +627,6 @@ async fn registry_flow_end_to_end() -> TestResult {
     assert!(
         failure_text.contains("delegation revoked"),
         "failure must be the on-chain delegation cut-off: {failure_text}"
-    );
-    // Insufficient credit: an oversized record costs more than the 50 mN credit.
-    let huge_id = "x".repeat(60_000);
-    let credit_refused = call_fails(
-        &contract,
-        &network,
-        &agent_id,
-        &fck_signer,
-        "anchor_artifact",
-        json!({
-            "artifact_digest": vec![9u8; 32],
-            "artifact_type": "Declaration",
-            "artifact_id": huge_id,
-            "subject_account": &agent_id,
-        }),
-        NearToken::from_yoctonear(0),
-    )
-    .await?;
-    assert!(credit_refused, "oversized anchor must fail on insufficient credit");
-    let credit_after_refusal: u128 = view::<String>(
-        &contract,
-        &network,
-        "get_storage_credit",
-        json!({ "agent": &agent_id }),
-    )
-    .await?
-    .parse()?;
-    assert_eq!(
-        credit_after_refusal, credit_after_anchor,
-        "a refused anchor must not debit credit"
     );
 
     assert!(

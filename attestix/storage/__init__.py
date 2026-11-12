@@ -1,4 +1,4 @@
-"""Pluggable persistence for skjold (the NEAR port of Attestix).
+"""Pluggable persistence for skjold (the NEAR port of skjold).
 
 This package keeps the :class:`Repository` seam introduced in v0.4.0. The
 default install resolves to the file-backed :class:`FileRepository`, which
@@ -8,7 +8,7 @@ maps the five chain collections onto the registry contract while keeping
 off-chain documents and signed bodies in the local file store.
 
 Selecting a non-default backend explicitly is still opt-in via the
-``ATTESTIX_STORAGE`` environment variable (or the ``config`` argument to
+``SKJOLD_STORAGE`` environment variable (or the ``config`` argument to
 :func:`select_repository`). Imports stay cheap and cycle-safe: the NEAR adapter
 is imported only when the registry environment is present, and
 :class:`NearRepository` itself imports ``attestix.config`` inside methods.
@@ -72,7 +72,7 @@ def select_repository(config: Optional[dict] = None) -> Repository:
     Selection precedence:
 
     1. ``config["storage"]`` if a ``config`` mapping is supplied.
-    2. The ``ATTESTIX_STORAGE`` environment variable.
+    2. The ``SKJOLD_STORAGE`` environment variable.
     3. Default: ``"file"`` when no registry is configured; ``"near"`` when
        ``SKJOLD_REGISTRY_ID`` is set (see :func:`default_repository`).
 
@@ -86,7 +86,7 @@ def select_repository(config: Optional[dict] = None) -> Repository:
     if config:
         choice = config.get("storage")
     if choice is None:
-        choice = os.environ.get("ATTESTIX_STORAGE")
+        choice = os.environ.get("SKJOLD_STORAGE")
     if choice is None:
         return default_repository()
     choice = str(choice).strip().lower()
@@ -101,7 +101,7 @@ def select_repository(config: Optional[dict] = None) -> Repository:
         return NearRepository.from_env()
 
     raise ValueError(
-        f"Unknown ATTESTIX_STORAGE value {choice!r}. "
+        f"Unknown SKJOLD_STORAGE value {choice!r}. "
         "Expected one of: file, memory, near."
     )
 

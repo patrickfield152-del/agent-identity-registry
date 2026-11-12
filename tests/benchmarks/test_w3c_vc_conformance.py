@@ -18,7 +18,7 @@ class TestCredentialStructure:
         return credential_service.issue_credential(
             subject_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
-            issuer_name="Attestix Conformance",
+            issuer_name="skjold Conformance",
             claims={"role": "tester", "level": "gold"},
         )
 
@@ -36,7 +36,7 @@ class TestCredentialStructure:
         issuer = issued_vc["issuer"]
         assert "id" in issuer
         assert issuer["id"].startswith("did:key:z")
-        assert issuer["name"] == "Attestix Conformance"
+        assert issuer["name"] == "skjold Conformance"
 
     def test_issuance_date_present(self, issued_vc):
         assert "issuanceDate" in issued_vc

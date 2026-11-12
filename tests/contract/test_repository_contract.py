@@ -5,7 +5,7 @@ the default ``FileRepository`` and the alternative ``MemoryRepository`` (and any
 future Postgres adapter) must pass identical assertions. This enforces Liskov
 substitution at the persistence boundary (constitution principle III).
 
-The ``tmp_attestix`` autouse fixture in ``tests/conftest.py`` redirects the file
+The ``tmp_skjold`` autouse fixture in ``tests/conftest.py`` redirects the file
 repository's paths to a temp dir, so the file adapter is exercised against
 isolated storage.
 """

@@ -1,6 +1,6 @@
-"""Attestix REST API - FastAPI application.
+"""skjold REST API - FastAPI application.
 
-REST API wrapper for the Attestix attestation infrastructure (v0.4.0-rc.2
+REST API wrapper for the skjold attestation infrastructure (v0.4.0-rc.2
 release candidate; single-maintainer project, no independent third-party
 security audit yet).
 Provides RESTful endpoints for agent identity, verifiable credentials,
@@ -26,9 +26,9 @@ try:
     from starlette.middleware.base import BaseHTTPMiddleware
 except ImportError as _api_extra_missing:  # pragma: no cover - exercised in fresh venvs
     raise ImportError(
-        "attestix.api requires the FastAPI stack. Install the [api] extra:\n"
-        "    pip install --pre 'attestix[api]'\n"
-        "or install fastapi + uvicorn directly alongside attestix."
+        "The skjold REST API requires the FastAPI stack. Install the [api] extra:\n"
+        "    pip install --pre 'skjold[api]'\n"
+        "or install fastapi + uvicorn directly alongside skjold."
     ) from _api_extra_missing
 
 from attestix.api.routers import (
@@ -209,13 +209,13 @@ def _resolve_client_ip(request: Request) -> str:
 # ---------------------------------------------------------------------------
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    """Validate X-API-Key header against ATTESTIX_API_KEY env var.
+    """Validate X-API-Key header against SKJOLD_API_KEY env var.
 
-    Auth is REQUIRED by default. If ATTESTIX_API_KEY is unset the server
+    Auth is REQUIRED by default. If SKJOLD_API_KEY is unset the server
     fails closed (503 on every non-open path) so that a single missing env
     var cannot silently expose write/destroy endpoints such as
     ``purge_agent_data``. To run without auth (development/tests only), the
-    operator must explicitly set ``ATTESTIX_ALLOW_NO_AUTH`` to a truthy value.
+    operator must explicitly set ``SKJOLD_ALLOW_NO_AUTH`` to a truthy value.
     Health check, docs, and OpenAPI schema endpoints are always open. Also
     accepts ``Authorization: Bearer <key>`` as a fallback.
     """
@@ -224,14 +224,14 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _allow_no_auth() -> bool:
-        return os.environ.get("ATTESTIX_ALLOW_NO_AUTH", "").strip().lower() in {
+        return os.environ.get("SKJOLD_ALLOW_NO_AUTH", "").strip().lower() in {
             "1", "true", "yes", "on",
         }
 
     def _tenant_rejection(self, request: Request):
         # Runs only after authentication so unauthenticated callers keep the
         # 401/403/503 outcome and do not learn the tenant policy.
-        tenant = request.headers.get("X-Attestix-Tenant", "default").strip()
+        tenant = request.headers.get("X-Skjold-Tenant", "default").strip()
         if request.url.path not in self.OPEN_PATHS and tenant not in {"", "default"}:
             return JSONResponse(
                 status_code=400,
@@ -241,7 +241,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         return None
 
     async def dispatch(self, request: Request, call_next):
-        api_key = os.environ.get("ATTESTIX_API_KEY")
+        api_key = os.environ.get("SKJOLD_API_KEY")
 
         # No key configured. Open paths are always served; everything else
         # fails closed unless the operator explicitly opted into no-auth mode.
@@ -253,8 +253,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": (
                         "Server is refusing requests because no API key is "
-                        "configured. Set ATTESTIX_API_KEY to require "
-                        "authentication, or set ATTESTIX_ALLOW_NO_AUTH=1 to "
+                        "configured. Set SKJOLD_API_KEY to require "
+                        "authentication, or set SKJOLD_ALLOW_NO_AUTH=1 to "
                         "run without auth (development only)."
                     )
                 },
@@ -330,24 +330,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if os.environ.get("ATTESTIX_DURABILITY", "safe").strip().lower() == "fast":
+    if os.environ.get("SKJOLD_DURABILITY", "safe").strip().lower() == "fast":
         raise RuntimeError("REST requires safe durability; fast mode is for single-writer batches")
-    logger.info("Attestix API starting up")
-    if not os.environ.get("ATTESTIX_API_KEY"):
+    logger.info("skjold API starting up")
+    if not os.environ.get("SKJOLD_API_KEY"):
         if APIKeyMiddleware._allow_no_auth():
             logger.warning(
-                "ATTESTIX_API_KEY is not set and ATTESTIX_ALLOW_NO_AUTH is "
+                "SKJOLD_API_KEY is not set and SKJOLD_ALLOW_NO_AUTH is "
                 "enabled: the API is serving ALL endpoints WITHOUT "
                 "authentication. Do not use this configuration in production."
             )
         else:
             logger.warning(
-                "ATTESTIX_API_KEY is not set: the API will refuse all "
+                "SKJOLD_API_KEY is not set: the API will refuse all "
                 "non-public requests (503) until a key is configured. Set "
-                "ATTESTIX_API_KEY, or ATTESTIX_ALLOW_NO_AUTH=1 for local dev."
+                "SKJOLD_API_KEY, or SKJOLD_ALLOW_NO_AUTH=1 for local dev."
             )
     yield
-    logger.info("Attestix API shutting down")
+    logger.info("skjold API shutting down")
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +355,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Attestix API",
+    title="skjold API",
     description=(
         "Attestation infrastructure for AI agents. "
         "Identity, verifiable credentials, EU AI Act compliance, "
@@ -417,7 +417,7 @@ def health_check():
     """Health check endpoint for load balancers and uptime monitors."""
     return {
         "status": "healthy",
-        "service": "attestix-api",
+        "service": "skjold-api",
         "version": __version__,
     }
 
@@ -455,6 +455,6 @@ app.include_router(blockchain.router)
 
 if __name__ == "__main__":
     import uvicorn
-    host = os.environ.get("ATTESTIX_API_HOST", "127.0.0.1")
-    port = int(os.environ.get("ATTESTIX_API_PORT", "8000"))
+    host = os.environ.get("SKJOLD_API_HOST", "127.0.0.1")
+    port = int(os.environ.get("SKJOLD_API_PORT", "8000"))
     uvicorn.run("api.main:app", host=host, port=port, reload=False)

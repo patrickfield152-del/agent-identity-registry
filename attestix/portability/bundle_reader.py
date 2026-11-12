@@ -1,4 +1,4 @@
-"""Read and verify Attestix portability bundles (the M6 cloud→OSS round-trip).
+"""Read and verify skjold portability bundles.
 
 A bundle is a USTAR + gzip tarball containing:
 
@@ -8,7 +8,7 @@ A bundle is a USTAR + gzip tarball containing:
 * ``manifest.sha256`` — hex SHA-256 of ``manifest.json`` bytes (the canonical
   form the exporter wrote), with a trailing newline.
 * ``<table>.jsonl`` — one JCS-canonical JSON object per line, snake_cased keys
-  matching the cloud Postgres column names.
+  matching the exported column names.
 
 The reader:
 
@@ -19,8 +19,8 @@ The reader:
   manifest** through :func:`attestix.auth.crypto.canonicalize_json` (the same
   RFC-8785 helper the signer and audit chain rely on) and compares against the
   side-car. Refusing to introduce a second canonicaliser is a deliberate
-  constraint: the cloud exporter uses the equivalent JS routine, and any
-  divergence here breaks the round-trip integrity guarantee.
+  constraint: any divergence from the exporter's canonical form breaks the
+  round-trip integrity guarantee.
 * Refuses bundles whose ``schemas.db_migration_max`` is newer than this OSS
   build knows how to import — pointing the operator at the upgrade docs.
 """
@@ -38,7 +38,7 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union
 from attestix.auth.crypto import canonicalize_json
 
 #: The bundle wire-format URL the exporter stamps into every manifest.
-BUNDLE_FORMAT_URL = "https://attestix.io/spec/bundle/v1"
+BUNDLE_FORMAT_URL = "urn:skjold:bundle:v1"
 
 #: The manifest_version this OSS build understands.
 SUPPORTED_MANIFEST_VERSION = "1.0"
@@ -82,7 +82,7 @@ class TableInfo:
 
 @dataclass
 class Bundle:
-    """Parsed Attestix portability bundle.
+    """Parsed skjold portability bundle.
 
     Attributes:
         path: Filesystem path the bundle was read from.
@@ -109,7 +109,7 @@ class Bundle:
 
     @property
     def bundle_format(self) -> str:
-        return str(self.manifest.get("attestix_bundle_format", ""))
+        return str(self.manifest.get("skjold_bundle_format", ""))
 
     @property
     def workspace(self) -> dict:
@@ -233,9 +233,9 @@ class Bundle:
         if theirs > ours:
             raise BundleSchemaTooNewError(
                 f"Bundle was exported under cloud DB migration {theirs!r} but this "
-                f"Attestix build only knows how to import up to {ours!r}. "
-                f"Upgrade `attestix` (`pip install -U attestix`) and re-run the "
-                f"import. See https://attestix.io/docs/portability/import "
+                f"skjold build only knows how to import up to {ours!r}. "
+                f"Upgrade `skjold` (`pip install -U skjold`) and re-run the "
+                f"import. See  "
                 f"for the supported-migration matrix."
             )
 
@@ -317,7 +317,7 @@ def read_bundle(path: Union[str, Path]) -> Bundle:
     if not isinstance(manifest, dict):
         raise BundleError("manifest.json must be a JSON object")
 
-    fmt = manifest.get("attestix_bundle_format")
+    fmt = manifest.get("skjold_bundle_format")
     if fmt != BUNDLE_FORMAT_URL:
         raise BundleError(
             f"unrecognised bundle format {fmt!r}; expected {BUNDLE_FORMAT_URL!r}"

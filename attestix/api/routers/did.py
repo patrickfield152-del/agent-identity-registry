@@ -1,7 +1,7 @@
 """DID router - REST endpoints wrapping DIDService.
 
 Supports creating and resolving Decentralized Identifiers:
-did:key (Ed25519), did:web, and Universal Resolver fallback.
+did:key (Ed25519) and did:near.
 """
 
 import logging
@@ -21,9 +21,9 @@ router = APIRouter(prefix="/v1/dids", tags=["did"])
 # Request models
 # ---------------------------------------------------------------------------
 
-class CreateDIDWebRequest(BaseModel):
-    domain: str = Field(..., description="Domain to host the DID document (e.g., example.com)")
-    path: str = Field("", description="Optional path component (e.g., agents/myagent)")
+class CreateWebDidRequest(BaseModel):
+    domain: str = Field(..., description="Deprecated domain hint; retained for request compatibility")
+    path: str = Field("", description="Deprecated path hint; retained for request compatibility")
 
 
 # ---------------------------------------------------------------------------
@@ -47,12 +47,13 @@ def create_did_key(
 
 @router.post("/web", status_code=201)
 def create_did_web(
-    body: CreateDIDWebRequest,
+    body: CreateWebDidRequest,
     svc: DIDService = Depends(get_did_service),
 ):
-    """Generate a did:web DID Document for self-hosting.
+    """Deprecated: web DID hosting was removed in the NEAR port.
 
-    The returned document must be hosted at the appropriate .well-known URL.
+    Returns the compatibility response with a did:near redirect; it never
+    produces a hosting URL.
     """
     result = svc.create_did_web(domain=body.domain, path=body.path)
     if isinstance(result, dict) and "error" in result:
@@ -68,7 +69,7 @@ def resolve_did(
 ):
     """Resolve a DID to its DID Document.
 
-    Supports did:key (local), did:web (HTTP), and Universal Resolver fallback.
+    Supports did:key (local) and did:near (registry).
     """
     result = svc.resolve_did(did)
     if isinstance(result, dict) and "error" in result:

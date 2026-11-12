@@ -1,4 +1,4 @@
-"""Provenance service for Attestix.
+"""Provenance service for skjold.
 
 Manages training data provenance, model lineage tracking, and
 Article 12 EU AI Act automatic action logging (audit trail).

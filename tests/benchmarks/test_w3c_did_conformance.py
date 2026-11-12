@@ -9,7 +9,11 @@ No test in this module touches the network unless it is explicitly gated on
 ``SKJOLD_ISSUER_DID`` + ``NEAR_RPC_URL`` (the live issuer proof check).
 """
 
+import json
 import os
+import shutil
+import subprocess
+from pathlib import Path
 
 import base58
 import pytest
@@ -181,32 +185,39 @@ class TestDidWebStub:
 
 
 def test_two_full_access_keys_duplicate_owner():
-    """A non-conforming account with two FullAccess keys yields duplicate #owner ids.
+    """The local JS resolver emits two VMs with the same ``#owner`` id for two keys."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required to exercise the reference resolver document builder")
+    repo = Path(__file__).resolve().parents[2]
+    if not (repo / "sdk" / "node_modules" / "near-api-js").exists():
+        pytest.skip("sdk/node_modules/near-api-js is required (pnpm install --prod)")
 
-    The contract invariant is one FullAccess key per agent sub-account; this test
-    pins the reference resolver's behaviour for an account that violates it, so
-    the ambiguity is deliberate and observable rather than silently merged.
-    """
-    _, first_key = generate_ed25519_keypair()
-    _, second_key = generate_ed25519_keypair()
-    service = DIDService()
-
-    documents = [
-        service._build_did_near_document(DID_NEAR, _public_key_base58(key))
-        for key in (first_key, second_key)
-    ]
-    methods = [document["verificationMethod"][0] for document in documents]
-
-    assert len(methods) == 2
-    assert [method["id"] for method in methods] == [
-        f"{DID_NEAR}#owner",
-        f"{DID_NEAR}#owner",
-    ]
-    assert {method["publicKeyBase58"] for method in methods} == {
-        _public_key_base58(first_key),
-        _public_key_base58(second_key),
-    }
-    assert all(document["authentication"] == ["#owner"] for document in documents)
+    key_one = base58.b58encode(b"\x01" * 32).decode("ascii")
+    key_two = base58.b58encode(b"\x02" * 32).decode("ascii")
+    script = f"""
+import {{ buildNearDidDocument }} from './sdk/src/did-near.mjs';
+const did = '{DID_NEAR}';
+const keys = [
+  {{ public_key: 'ed25519:{key_one}', access_key: {{ permission: 'FullAccess' }} }},
+  {{ public_key: 'ed25519:{key_two}', access_key: {{ permission: 'FullAccess' }} }},
+];
+process.stdout.write(JSON.stringify(buildNearDidDocument(did, keys)));
+"""
+    result = subprocess.run(
+        [node, "--input-type=module", "-e", script],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    document = json.loads(result.stdout)
+    methods = document["verificationMethod"]
+    assert [method["id"] for method in methods] == [f"{DID_NEAR}#owner"] * 2
+    assert {method["publicKeyBase58"] for method in methods} == {key_one, key_two}
+    assert document["authentication"] == ["#owner"]
+    assert document["assertionMethod"] == ["#owner"]
 
 
 @SKIP_LIVE_ISSUER

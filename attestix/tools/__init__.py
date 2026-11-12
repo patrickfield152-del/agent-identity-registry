@@ -1,4 +1,4 @@
-"""Attestix tools - re-exports from flat module for namespace compatibility.
+"""skjold tools - MCP tool registration modules.
 
 MCP tool registration modules (47 tools across 9 modules):
     - identity_tools: 8 tools for UAIT management
@@ -9,7 +9,7 @@ MCP tool registration modules (47 tools across 9 modules):
     - compliance_tools: 7 tools for EU AI Act compliance
     - credential_tools: 8 tools for W3C VCs
     - provenance_tools: 5 tools for audit trails
-    - blockchain_tools: 6 tools for EAS anchoring
+    - blockchain_tools: 6 tools for registry anchoring
 """
 
 # Re-export submodules

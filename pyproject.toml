@@ -5,15 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "skjold"
 version = "0.5.0"
-description = "Attestix - AI agent identity and signed evidence tooling. DID-based identity, W3C Verifiable Credentials, governance evidence, delegation chains, and reputation scoring."
+description = "skjold - NEAR-native AI agent identity and signed evidence tooling. did:near identity, W3C Verifiable Credentials, governance evidence, delegation chains, and reputation scoring."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-authors = [
-    {name = "VIBETENSOR PRIVATE LIMITED", email = "info@vibetensor.com"},
-]
 keywords = [
-    "attestix",
+    "skjold",
     "ai-agents",
     "agent-identity",
     "attestation",
@@ -23,10 +20,12 @@ keywords = [
     "mcp",
     "mcp-server",
     "did",
+    "did-near",
     "ucan",
     "compliance",
     "ed25519",
-    "blockchain",
+    "near",
+    "near-protocol",
     "gdpr",
     "reputation",
     "w3c",
@@ -45,62 +44,46 @@ classifiers = [
 dependencies = [
     # Runtime dependencies are pinned with both lower and upper bounds to
     # prevent silent breakage from major-version drift (mcp 2.x, PyJWT 3.x,
-    # cryptography 47.x, etc.) on fresh `pip install attestix`. See
-    # paper/internal/dependency-audit-v0.3.0-2026-04-17.md for the rationale.
+    # cryptography 51.x, etc.) on fresh installs.
     # mcp >=1.30.0 closes the transport, OAuth and schema-validation advisories.
     "mcp[cli]>=1.30.0,<2.0.0",
-    # cryptography >=48.0.1 closes GHSA-537c-gmf6-5ccf (in addition to the
-    # earlier CVE-2026-34073 name-constraints bypass and CVE-2026-39892
-    # Hash.update buffer overflow closed in 46.0.7).
     # cryptography >=50.0.0 closes the 44.x-49.x advisory flagged by Dependabot.
     "cryptography>=50.0.0,<51.0.0",
-    # PyJWT >=2.12.0 closes CVE-2026-32597 (crit header validation bypass).
-    # This directly impacts Attestix's JWT / Verifiable Credential / UCAN
-    # verification paths and is the hard blocker for the v0.3.0 release.
+    # PyJWT >=2.15.0 closes CVE-2026-32597 (crit header validation bypass),
+    # which affects the JWT / Verifiable Credential / UCAN verification paths.
     "PyJWT[crypto]>=2.15.0,<3.0.0",
     "anyio>=4.14.2,<5.0.0",
     "base58>=2.1.1,<3.0.0",
     "httpx>=0.28.0,<0.30.0",
     "python-dotenv>=1.1.0,<2.0.0",
     "nest-asyncio>=1.6.0,<2.0.0",
-    # python-json-logger 4.x is already pulled transitively in our env; keep
-    # the upper bound generous so we do not break existing installs.
     "python-json-logger>=3.3.0,<5.0.0",
     "filelock>=4.2.1,<5.0.0",
     # Use the current CA bundle security floor for transitive HTTP clients.
     "certifi>=2026.10.19",
     "click>=8.1.0,<9.0.0",
     # Transitive pin: mcp pulls python-multipart. Versions <0.0.26 are
-    # vulnerable to CVE-2026-40347 (DoS via large multipart preamble/epilogue)
-    # which is exposed through both the MCP stdio server and the FastAPI
-    # REST API's multipart uploads. Forcing >=0.0.26 here ensures the fix
-    # lands regardless of what mcp's own floor currently is.
+    # vulnerable to CVE-2026-40347, exposed through both the MCP stdio server
+    # and the FastAPI REST API's multipart uploads.
     "python-multipart>=0.0.26,<0.1.0",
 ]
 
 [project.optional-dependencies]
 reports = ["weasyprint>=62.0"]
-# v0.4.0-rc.3: the REST API depends on FastAPI + uvicorn. Kept as an opt-in
-# extra (not a base runtime dep) so callers who only need the MCP server or
-# Python services do not get FastAPI dragged in. The published quickstart at
-# attestix.io/docs/quickstart/enterprise-architect now installs `attestix[api]`.
-# starlette >=1.3.1 closes the five starlette advisories flagged by Dependabot
-# in requirements-runtime.txt; fastapi <0.130 pinned starlette 0.52.x.
+# The REST API depends on FastAPI + uvicorn. Kept as an opt-in extra (not a
+# base runtime dep) so callers who only need the MCP server or Python services
+# do not get FastAPI dragged in.
 api = ["fastapi>=0.130,<0.140", "uvicorn[standard]>=0.32,<0.40", "starlette>=1.3.1,<2.0"]
-# v0.4.0-rc.3: framework integration extras. The integration callback /
-# adapter classes live under `attestix.integrations.<framework>` and import
-# their respective SDK lazily so `import attestix.integrations` itself is
-# always cheap. Install only the extra you need.
-# Core 1.4.6 also meets the patched full-framework LangChain 1.3.9 floor.
+# Framework integration extras. The callback / adapter classes live under
+# `attestix.integrations.<framework>` and import their SDK lazily so
+# `import attestix.integrations` itself is always cheap.
 langchain = ["langchain-core>=1.4.6,<2.0"]
 crewai = ["crewai>=0.95,<0.200"]
 openai-agents = ["openai-agents>=0.0.20"]
 test = ["pytest>=8.0", "pytest-asyncio>=0.24", "respx>=0.22", "pytest-cov>=5.0"]
 lint = ["ruff>=0.6.0", "mypy>=1.11"]
 security = ["pip-audit>=2.7", "bandit>=1.7"]
-# CycloneDX SBOM generation. Produces a CycloneDX 1.5 (or later) JSON BOM
-# with runtime and transitive dependencies. Used in the release workflow to
-# attach an authoritative SBOM to every GitHub release.
+# CycloneDX SBOM generation (runtime + transitive dependencies).
 sbom = ["cyclonedx-bom>=5.0.0,<6.0.0"]
 dev = [
     "pytest>=8.0",
@@ -117,29 +100,13 @@ dev = [
     "wheel>=0.48.0,<0.49",
 ]
 
-[project.urls]
-Homepage = "https://github.com/VibeTensor/attestix"
-Documentation = "https://attestix.io/docs"
-Repository = "https://github.com/VibeTensor/attestix"
-Issues = "https://github.com/VibeTensor/attestix/issues"
-
 [project.scripts]
 skjold = "attestix.cli:cli"
 
 [tool.setuptools]
-# v0.4.0-rc.2 packaging fix: the wheel ships ONLY the canonical `attestix.*`
-# namespace + thin deprecation shims for the pre-rc.2 flat layout. The shims
-# emit a DeprecationWarning on first import and may be removed in
-# a future release. Inspect the wheel with::
-#
-#   python -c "import zipfile, sys; z=zipfile.ZipFile(sys.argv[1]); \
-#       print(sorted({n.split('/')[0] for n in z.namelist()}))" dist/attestix-*.whl
-#
-# Expected top-level set: {attestix, api, auth, audit, blockchain, idempotency,
-# services, signing, storage, tenancy, tools, attestix-<ver>.dist-info}. The
-# non-`attestix` entries are deprecation shims, NOT duplicate source code.
+# The wheel ships the canonical `attestix.*` namespace only. The module path is
+# retained; the distribution and console script are `skjold`.
 packages = [
-    # Canonical namespace (recommended: `from attestix.services... import ...`).
     "attestix",
     "attestix.api",
     "attestix.api.routers",
@@ -147,39 +114,17 @@ packages = [
     "attestix.auth",
     "attestix.blockchain",
     "attestix.idempotency",
-    # v0.4.0-rc.3: framework integration adapters. Each subpackage lazily
-    # imports its framework so the parent `attestix.integrations` is always
-    # cheap to import. P0 #1 of the rc.2 validation: the wheel previously
-    # shipped no `attestix.integrations.*` at all, so the indie-dev
-    # quickstart's `from attestix.integrations.langchain import
-    # AttestixCallback` raised ModuleNotFoundError on every fresh install.
     "attestix.integrations",
     "attestix.integrations.langchain",
     "attestix.integrations.openai_agents",
     "attestix.integrations.crewai",
+    "attestix.portability",
     "attestix.services",
     "attestix.signing",
     "attestix.storage",
     "attestix.tenancy",
     "attestix.tools",
-    # Deprecation shims for the pre-rc.2 flat layout (emit DeprecationWarning,
-    # retained for compatibility in 0.5.0). Each subpackage is a tiny re-export of
-    # the canonical `attestix.<sub>` namespace.
-    "api",
-    "api.routers",
-    "audit",
-    "auth",
-    "blockchain",
-    "idempotency",
-    "services",
-    "signing",
-    "storage",
-    "tenancy",
-    "tools",
 ]
-# Top-level deprecation shims for the pre-rc.2 flat layout. These delegate to
-# `attestix.<module>` and emit a DeprecationWarning on import.
-py-modules = ["cli", "config", "errors", "main"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -189,9 +134,6 @@ testpaths = ["tests"]
 # logfire, the plugin raises ImportError at collection time and aborts the
 # whole suite. We do not need logfire for our tests.
 addopts = "-p no:logfire"
-markers = [
-    "perf: performance guard tests (issuance scaling); generous CI thresholds (deselect with -m 'not perf')",
-]
 
 [tool.ruff]
 line-length = 120
@@ -201,9 +143,6 @@ extend-exclude = [
     "dist",
     ".venv",
     "site",
-    "magicuidesign-agent-template",
-    "magicuidesign-devtool-template",
-    "website",
     "attestix.egg-info",
 ]
 
@@ -228,8 +167,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["F401", "F811", "E402", "E401"]
-"examples/**" = ["F401", "E402"]
-"demo/**" = ["F401", "E402", "E401"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -244,13 +181,7 @@ exclude = [
     "build/",
     "dist/",
     "site/",
-    "website/",
-    "magicuidesign-agent-template/",
-    "magicuidesign-devtool-template/",
     "tests/",
-    "examples/",
-    "demo/",
-    "paper/",
 ]
 
 [tool.bandit]
@@ -259,11 +190,6 @@ exclude_dirs = [
     "build",
     "dist",
     "site",
-    "website",
-    "magicuidesign-agent-template",
-    "magicuidesign-devtool-template",
-    "examples",
-    "demo",
     ".venv",
 ]
 skips = ["B101", "B311", "B404", "B603", "B607"]
@@ -273,8 +199,6 @@ source = ["attestix"]
 branch = true
 omit = [
     "tests/*",
-    "examples/*",
-    "demo/*",
     "build/*",
     "dist/*",
     "*/__init__.py",

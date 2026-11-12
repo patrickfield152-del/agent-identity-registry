@@ -53,5 +53,5 @@ class Signer(ABC):
     @property
     @abstractmethod
     def did(self) -> str:
-        """Return the ``did:key`` (or ``did:web``) identifier of this signer."""
+        """Return the ``did:key`` or ``did:near`` identifier of this signer."""
         raise NotImplementedError

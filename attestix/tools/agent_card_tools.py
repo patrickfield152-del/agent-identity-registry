@@ -1,4 +1,4 @@
-"""A2A Agent Card MCP tools for Attestix (3 tools)."""
+"""A2A Agent Card MCP tools for skjold (3 tools)."""
 
 import json
 

@@ -1,4 +1,4 @@
-"""CrewAI adapter for the Attestix audit chain.
+"""CrewAI adapter for the skjold audit chain.
 
 The adapter does not import CrewAI itself — the integration is purely a
 log-emission helper that callers invoke from their own CrewAI
@@ -14,12 +14,12 @@ from attestix.services.identity_service import IdentityService
 from attestix.services.provenance_service import ProvenanceService
 
 
-class AttestixCrewAdapter:
-    """Log CrewAI Task lifecycle events to the Attestix audit chain.
+class skjoldCrewAdapter:
+    """Log CrewAI Task lifecycle events to the skjold audit chain.
 
     Wire into a Crew::
 
-        adapter = AttestixCrewAdapter(display_name="ResearchCrew")
+        adapter = skjoldCrewAdapter(display_name="ResearchCrew")
         # In your CrewAI Task callback:
         adapter.log_task_start(task_name="research", agent_role="researcher")
         ...

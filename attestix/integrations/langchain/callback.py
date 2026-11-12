@@ -1,8 +1,8 @@
-"""LangChain ``BaseCallbackHandler`` that logs to the Attestix audit chain.
+"""LangChain ``BaseCallbackHandler`` that logs to the skjold audit chain.
 
 This is the real callback handler referenced by the indie-dev quickstart::
 
-    from attestix.integrations.langchain import AttestixCallback
+    from attestix.integrations.langchain import skjoldCallback
 
 It is a thin wrapper around :class:`~attestix.services.provenance_service.ProvenanceService`
 that maps the LangChain callback surface onto ``log_action(...)`` calls so
@@ -33,8 +33,8 @@ def _require_langchain():
         from langchain_core.outputs import LLMResult  # noqa: F401
     except ImportError as exc:  # pragma: no cover - exercised by integration test
         raise ImportError(
-            "AttestixCallback requires langchain-core. Install it with:\n"
-            "    pip install 'attestix[langchain]'\n"
+            "skjoldCallback requires langchain-core. Install it with:\n"
+            "    pip install 'skjold[langchain]'\n"
             "or:\n"
             "    pip install langchain-core"
         ) from exc
@@ -46,22 +46,22 @@ from langchain_core.callbacks import BaseCallbackHandler  # noqa: E402
 from langchain_core.outputs import LLMResult  # noqa: E402
 
 
-class AttestixCallback(BaseCallbackHandler):
-    """LangChain callback that emits one Attestix audit row per event.
+class skjoldCallback(BaseCallbackHandler):
+    """LangChain callback that emits one skjold audit row per event.
 
     Usage::
 
-        from attestix.integrations.langchain import AttestixCallback
+        from attestix.integrations.langchain import skjoldCallback
         from attestix.services.identity_service import IdentityService
 
         agent = IdentityService().create_identity(
             display_name="rag-helper", source_protocol="manual",
         )
-        callback = AttestixCallback(agent_id=agent["agent_id"])
+        callback = skjoldCallback(agent_id=agent["agent_id"])
         executor.invoke({"input": "..."}, config={"callbacks": [callback]})
 
     Args:
-        agent_id: Existing Attestix agent_id to associate audit rows with.
+        agent_id: Existing skjold agent_id to associate audit rows with.
             If ``None``, a fresh identity is auto-created on first use with
             ``display_name=display_name`` and ``issuer_name=issuer_name``.
         display_name: Display name used only when auto-creating an identity.

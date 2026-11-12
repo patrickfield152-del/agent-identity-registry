@@ -1,4 +1,4 @@
-"""Apply an Attestix portability bundle to the local OSS storage.
+"""Apply a skjold portability bundle to the local storage.
 
 The :class:`Importer` consumes a :class:`~attestix.portability.bundle_reader.Bundle`
 and walks its tables in **dependency order**, writing each row through the
@@ -19,8 +19,8 @@ is the appropriate seam for a portability import.
 Audit-chain reconciliation
 --------------------------
 
-For ``audit_events`` the bundle preserves the cloud's per-tenant chain order
-(the cloud exporter orders by ``created_at, id``). Before the importer commits
+For ``audit_events`` the bundle preserves its per-tenant chain order
+(ordered by ``created_at, id``). Before the importer commits
 the audit table, it runs the existing
 :func:`attestix.audit.events.verify_chain` over the imported rows. If the chain
 does not reconcile end-to-end the whole import aborts before any data is
@@ -30,12 +30,11 @@ verification passes, then flushes through the repository.
 Identity-document validation
 ----------------------------
 
-For ``identities`` rows that carry a ``did_document`` blob (cloud schema), the
-importer asks the existing :class:`~attestix.services.did_service.DIDService`
-to resolve the DID; if the document round-trips we trust the imported row, if
-not we abort. did:key DIDs round-trip purely locally; did:web is allowed to
-fail closed if the network is unreachable (the importer falls back to
-structural validation on the document).
+For ``identities`` rows that carry a ``did_document`` blob, the importer asks
+the existing :class:`~attestix.services.did_service.DIDService` to resolve the
+DID; if the document round-trips we trust the imported row, if not we abort.
+did:key DIDs round-trip purely locally; any other DID method is validated
+structurally against its bundled document.
 
 Cloud-only columns
 ------------------
@@ -338,7 +337,7 @@ class Importer:
     """Apply a verified :class:`Bundle` to the local OSS storage.
 
     Construct with no arguments to use the default file-backed Repository
-    (``~/.attestix/*.json``). Inject ``repository`` to drive an alternate
+    (``~/.skjold/*.json``). Inject ``repository`` to drive an alternate
     storage backend in tests.
     """
 
@@ -491,8 +490,8 @@ class Importer:
             result.chain_verified = True
 
         # ---------- Optional identity DID round-trip ------------------------
-        # did:key DIDs round-trip purely locally; did:web requires the network
-        # which we don't exercise here — structural validation only.
+        # did:key DIDs round-trip purely locally; any other DID method is
+        # checked structurally against its bundled document.
         for name, collection, _id, projected in staged:
             if collection != "identities":
                 continue
@@ -503,9 +502,8 @@ class Importer:
                     continue
                 if did.startswith("did:key:"):
                     self._validate_did_key(did, doc)
-                elif did.startswith("did:web:"):
-                    self._validate_did_web_structure(did, doc)
-                # Other methods: trust the document is structurally valid.
+                else:
+                    self._validate_did_document_structure(did, doc)
 
         if verify_only:
             return result
@@ -610,8 +608,8 @@ class Importer:
                 f"({resolved.get('id')!r}); refusing to import a tampered identity"
             )
 
-    def _validate_did_web_structure(self, did: str, doc: Optional[dict]) -> None:
-        """Best-effort structural check for ``did:web`` documents.
+    def _validate_did_document_structure(self, did: str, doc: Optional[dict]) -> None:
+        """Best-effort structural check for a bundled DID document.
 
         We do not fetch the live document over HTTP during import — that would
         block on every offline import. We do, however, verify that the bundle
@@ -620,7 +618,7 @@ class Importer:
         if not isinstance(doc, dict):
             raise ImportError(
                 f"identity row {did!r} has no did_document attached; refusing "
-                f"to import a did:web identity without its DID Document"
+                f"to import this identity without its DID Document"
             )
         if doc.get("id") != did:
             raise ImportError(

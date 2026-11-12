@@ -45,7 +45,7 @@ class TestSignVerify:
 
     def test_sign_and_verify(self):
         priv, pub = generate_ed25519_keypair()
-        msg = b"hello attestix"
+        msg = b"hello skjold"
         sig = sign_message(priv, msg)
         assert len(sig) == 64
         assert verify_signature(pub, sig, msg)
@@ -75,7 +75,7 @@ class TestDidKey:
     def test_invalid_did_key_raises(self):
         import pytest
         with pytest.raises(ValueError, match="Invalid did:key"):
-            did_key_to_public_key("did:web:example.com")
+            did_key_to_public_key("did:near:example.testnet")
 
     def test_wrong_multicodec_raises(self):
         import pytest

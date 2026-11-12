@@ -1,4 +1,4 @@
-"""A2A Agent Card service for Attestix.
+"""A2A Agent Card service for skjold.
 
 Handles fetching, parsing, and generating Google A2A Agent Cards
 (the /.well-known/agent.json standard).
@@ -22,7 +22,7 @@ class AgentCardService:
     """Discover, parse, and generate A2A Agent Cards."""
 
     #: Actor recorded on agent-card audit events (no server DID of its own).
-    AUDIT_ACTOR = "attestix:agent-card-service"
+    AUDIT_ACTOR = "skjold:agent-card-service"
 
     def __init__(
         self,
@@ -136,7 +136,7 @@ class AgentCardService:
             skills = []
 
         card = {
-            "id": f"attestix-{hashlib.sha256(url.encode()).hexdigest()[:16]}",
+            "id": f"skjold-{hashlib.sha256(url.encode()).hexdigest()[:16]}",
             "name": name,
             "description": description,
             "url": url,
@@ -155,7 +155,7 @@ class AgentCardService:
                 }
             ],
             "provider": {
-                "organization": "Attestix",
+                "organization": "skjold",
             },
             "authentication": {
                 "schemes": ["bearer"],

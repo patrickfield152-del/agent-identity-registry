@@ -1,4 +1,4 @@
-"""Centralized error handling and logging for Attestix."""
+"""Centralized error handling and logging for skjold."""
 
 import sys
 import logging
@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Optional, Union
 from pythonjsonlogger import json as jsonlogger
 
-logger = logging.getLogger("attestix")
+logger = logging.getLogger("skjold")
 
 
 class ErrorCategory(str, Enum):
@@ -29,7 +29,7 @@ class ErrorCategory(str, Enum):
     IDEMPOTENCY = "IDEMPOTENCY"
 
 
-def setup_logging(log_file: str = "attestix_errors.log"):
+def setup_logging(log_file: str = "skjold_errors.log"):
     """Configure dual logging: stderr (human-readable) + file (JSON structured)."""
     logger.setLevel(logging.DEBUG)
 
