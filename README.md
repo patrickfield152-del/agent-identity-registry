@@ -123,6 +123,19 @@ Not implemented in this revision:
 
 The contract has not been audited by a third party.
 
+## Limits
+
+- **Anchor storage credit.** `create_agent` funds exactly **50 mN** of prepaid
+  anchor storage for the new agent (included in its attached deposit). A
+  function-call access key cannot attach a deposit on NEAR
+  (`InvalidAccessKeyError::DepositWithFunctionCall`), so an agent's FCK anchors
+  with `0` attached deposit and the registry debits this credit by the record
+  cost. Exhausted credit fails closed (`insufficient storage credit`).
+  FullAccess agent calls may attach a deposit instead; the contract refunds the
+  excess and never charges the credit twice. `create_agent` and
+  `register_existing_agent` fund the credit exactly once.
+- Revocation stops registry calls only; it does not seize the agent account.
+
 ## Build prerequisites
 
 | Requirement | Version |

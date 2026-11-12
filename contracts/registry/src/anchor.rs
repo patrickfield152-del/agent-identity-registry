@@ -55,9 +55,23 @@ impl Contract {
             block_height,
             block_timestamp_ns,
         };
-        self.require_storage_deposit(
+        let required = self.storage_cost_for(
             Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES),
         );
+        if caller == self.operator {
+            // The operator pays its own storage deposit.
+            self.require_deposit(required);
+        } else if env::attached_deposit().is_zero() {
+            // A function-call access key cannot attach a deposit, so the agent's
+            // prepaid credit covers the record. Fail closed when it is exhausted.
+            let credit = self.storage_credit.get(&caller).copied().unwrap_or(0);
+            let cost = required.as_yoctonear();
+            require!(credit >= cost, "insufficient storage credit");
+            let _ = self.storage_credit.insert(caller.clone(), credit - cost);
+        } else {
+            // FullAccess agent calls may pay directly; never double-charge credit.
+            self.require_deposit(required);
+        }
 
         let _ = self.anchors.insert(artifact_digest, record);
         Event::ArtifactAnchored(vec![AnchorData {
@@ -111,5 +125,10 @@ impl Contract {
             block_timestamp_ns: 0,
         };
         self.storage_cost_for(Self::borsh_len(&probe).saturating_add(RECORD_OVERHEAD_BYTES))
+    }
+
+    /// Remaining prepaid anchor storage credit for an agent, in yoctoNEAR.
+    pub fn get_storage_credit(&self, agent: AccountId) -> NearToken {
+        NearToken::from_yoctonear(self.storage_credit.get(&agent).copied().unwrap_or(0))
     }
 }

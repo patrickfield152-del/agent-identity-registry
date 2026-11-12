@@ -33,6 +33,14 @@ pub const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 /// Extra bytes billed per stored record: its storage key plus collection bookkeeping.
 pub(crate) const RECORD_OVERHEAD_BYTES: u64 = 40;
 
+/// Prepaid storage credit funded once per agent at registration.
+///
+/// A function-call access key cannot attach a deposit (nearcore
+/// `InvalidAccessKeyError::DepositWithFunctionCall`), so the agent's FCK anchors
+/// draw from this registry-held ledger instead. 50 mN covers roughly twenty
+/// `AnchorRecord`s at the documented borsh sizes.
+pub const AGENT_STORAGE_CREDIT: NearToken = NearToken::from_millinear(50);
+
 /// Registry state.
 ///
 /// Every storage structure takes a distinct prefix; two collections sharing a prefix
@@ -63,6 +71,8 @@ pub struct Contract {
     pub(crate) tee_nonces: LookupSet<Digest32>,
     /// Generic artifact anchors.
     pub(crate) anchors: IterableMap<Digest32, AnchorRecord>,
+    /// Prepaid anchor storage credit, keyed by agent. Funded once at registration.
+    pub(crate) storage_credit: LookupMap<AccountId, u128>,
 }
 
 #[near]
@@ -81,6 +91,7 @@ impl Contract {
             tee: IterableMap::new(b"t".to_vec()),
             tee_nonces: LookupSet::new(b"tn".to_vec()),
             anchors: IterableMap::new(b"n".to_vec()),
+            storage_credit: LookupMap::new(b"sc".to_vec()),
         }
     }
 }
@@ -137,5 +148,15 @@ impl Contract {
         env::sha256(bytes)
             .try_into()
             .expect("sha256 output is exactly 32 bytes")
+    }
+
+    /// Bytes billed for a new `storage_credit` entry: the account key + u128 + overhead.
+    pub(crate) fn credit_entry_bytes(agent: &AccountId) -> u64 {
+        agent.as_bytes().len() as u64 + 16 + RECORD_OVERHEAD_BYTES
+    }
+
+    /// Total registration charge for the credit: the credit itself plus its entry.
+    pub(crate) fn agent_credit_cost(&self, agent: &AccountId) -> NearToken {
+        AGENT_STORAGE_CREDIT.saturating_add(self.storage_cost_for(Self::credit_entry_bytes(agent)))
     }
 }

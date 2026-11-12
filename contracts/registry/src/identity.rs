@@ -10,7 +10,7 @@ use near_sdk::{
 
 use crate::events::Event;
 use crate::types::{AgentRecord, AgentRevoked, Digest32, IdentityData};
-use crate::{Contract, ContractExt, GAS_CALLBACK, RECORD_OVERHEAD_BYTES};
+use crate::{Contract, ContractExt, AGENT_STORAGE_CREDIT, GAS_CALLBACK, RECORD_OVERHEAD_BYTES};
 
 #[near]
 impl Contract {
@@ -20,6 +20,11 @@ impl Contract {
     /// The deposit covers the 10 mN stake that is forwarded to the sub-account plus the
     /// 7 mN CreateAccount charge the protocol deducts from this receipt's refund, plus
     /// the AgentRecord's own storage. The registry must not subsidise either.
+    ///
+    /// `full_access_key` is the key agent-callable methods compare against
+    /// `env::signer_account_pk()` (see `require_agent_signer`). A NEP-366 meta-transaction
+    /// puts the RELAYER's key in `signer_account_pk()`, so agent-only calls must never be
+    /// relayed: a relayed call fails the signer check instead of being accepted.
     #[payable]
     pub fn create_agent(
         &mut self,
@@ -80,10 +85,12 @@ impl Contract {
         let record_cost = self.storage_cost_for(
             Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES),
         );
-        let required = NearToken::from_millinear(17).saturating_add(record_cost);
+        let required = NearToken::from_millinear(17)
+            .saturating_add(record_cost)
+            .saturating_add(self.agent_credit_cost(&sub));
         require!(
             env::attached_deposit() >= required,
-            "attach >= 17 mN + record storage"
+            "attach >= 17 mN + record storage + 50 mN agent credit"
         );
         self.refund_excess(required);
 
@@ -101,11 +108,16 @@ impl Contract {
     /// Callback after the create-account batch. A failed CreateAccount/AddKey does not
     /// roll this contract back, so only a `Successful` promise result may write state.
     /// Duplicate deliveries are idempotent.
+    /// The gate never panics: a missing, failed or oversized result returns `false`
+    /// without writing state.
     #[private]
     pub fn on_agent_created(&mut self, record: AgentRecord) -> bool {
         if env::promise_results_count() == 0 {
             return false;
         }
+        // RK17/RK25: `promise_result_checked` returns `Ok(bytes)` only for a successful
+        // CreateAccount/AddKey batch; `Err` covers both a failed promise and an oversized
+        // result, and the count check above keeps a missing result from aborting.
         if env::promise_result_checked(0, 1024).is_err() {
             return false;
         }
@@ -120,6 +132,117 @@ impl Contract {
             source_protocol: record.source_protocol.clone(),
             expires_at_ns: record.expires_at_ns,
         };
+        let _ = self
+            .storage_credit
+            .insert(agent.clone(), AGENT_STORAGE_CREDIT.as_yoctonear());
+        let _ = self.agents.insert(agent, record);
+        Event::IdentityCreated(vec![event]).emit();
+        true
+    }
+
+    /// Repair a sub-account that exists on-chain but whose `create_agent` callback never
+    /// landed, so it has no `AgentRecord`.
+    ///
+    /// Operator-only. No cross-contract call is issued: the account already exists, so
+    /// the record is written in this receipt and the call returns `true` synchronously.
+    /// The 17 mN that `create_agent` bills (10 mN stake forwarded to the sub-account plus
+    /// the 7 mN CreateAccount charge) is NOT due on this path — no account is created and
+    /// no stake is transferred — so only the `AgentRecord`'s own storage is charged, and
+    /// any excess is refunded. A repeat call once the record exists is an idempotent
+    /// no-op that refunds the whole deposit and never overwrites (or resurrects) the
+    /// stored record; `true` then only means "a record exists", not "the supplied fields
+    /// match it" — read `get_identity` when that distinction matters.
+    ///
+    /// The contract cannot inspect another account's key list synchronously, so the
+    /// operator MUST verify off-chain that `agent` exists and holds exactly the one
+    /// FullAccess key `full_access_key` before calling; did:near `#owner` resolution
+    /// reads the account's key list, not this record.
+    ///
+    /// Agent-callable methods compare `full_access_key` against
+    /// `env::signer_account_pk()` (see `require_agent_signer`). A NEP-366 meta-transaction
+    /// puts the RELAYER's key in `signer_account_pk()`, so a relayed agent-only call
+    /// fails the signer check; never relay these methods.
+    #[payable]
+    pub fn register_existing_agent(
+        &mut self,
+        agent: AccountId,
+        full_access_key: PublicKey,
+        uait_digest: Digest32,
+        display_name: String,
+        description: String,
+        source_protocol: String,
+        issuer_name: String,
+        issuer_did: String,
+        capabilities: Vec<String>,
+        expires_at_ns: u64,
+    ) -> bool {
+        require!(
+            env::predecessor_account_id() == self.operator,
+            "operator only"
+        );
+
+        // The repair path only ever registers a direct sub-account of this registry.
+        let suffix = format!(".{}", env::current_account_id());
+        require!(
+            agent.as_str().ends_with(&suffix),
+            "agent must be a sub-account of this registry"
+        );
+        let prefix = &agent.as_str()[..agent.as_str().len() - suffix.len()];
+        require!(
+            !prefix.is_empty()
+                && prefix.len() <= 32
+                && !prefix.starts_with('-')
+                && !prefix.ends_with('-')
+                && prefix
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_'),
+            "prefix: 1-32 chars of [a-z0-9-_], no leading/trailing '-'"
+        );
+        require!(
+            display_name.chars().count() <= 500,
+            "display_name > 500 chars"
+        );
+        require!(capabilities.len() <= 32, "too many capabilities");
+
+        // Idempotent repair: the stored record (revoked or not) is authoritative and is
+        // never overwritten. Return the deposit so a retried call traps no funds.
+        if self.agents.contains_key(&agent) {
+            self.refund_deposit();
+            return true;
+        }
+
+        let record = AgentRecord {
+            agent: agent.clone(),
+            operator: self.operator.clone(),
+            full_access_key,
+            uait_digest,
+            display_name,
+            description,
+            source_protocol,
+            issuer_name,
+            issuer_did,
+            capabilities,
+            created_at_ns: env::block_timestamp(),
+            expires_at_ns,
+            revoked: false,
+            revoked_at_ns: None,
+            revocation_reason: None,
+        };
+        let required = self
+            .storage_cost_for(Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES))
+            .saturating_add(self.agent_credit_cost(&agent));
+        self.require_deposit(required);
+
+        let event = IdentityData {
+            agent: agent.clone(),
+            operator: record.operator.clone(),
+            uait_digest: record.uait_digest,
+            source_protocol: record.source_protocol.clone(),
+            expires_at_ns: record.expires_at_ns,
+        };
+        let _ = self
+            .storage_credit
+            .insert(agent.clone(), AGENT_STORAGE_CREDIT.as_yoctonear());
         let _ = self.agents.insert(agent, record);
         Event::IdentityCreated(vec![event]).emit();
         true
