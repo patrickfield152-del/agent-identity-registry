@@ -42,8 +42,4 @@ These are installed from their registries; none is vendored here.
 | near-api (Rust) | 0.8.7 | contract dev-dependencies | MIT OR Apache-2.0 |
 | cargo-near-build | 0.11.5 | contract dev-dependencies | MIT OR Apache-2.0 |
 | near-api-js | 7.5.3 | sdk runtime dependency | MIT AND Apache-2.0 |
-| @kaytrust/did-near-resolver | 1.4.12 | sdk devDependency only | ISC |
 | mcp[cli], cryptography, PyJWT, filelock, fastapi, uvicorn, httpx, anyio | see `pyproject.toml` | Python package | as declared in the origin metadata |
-
-`@kaytrust/did-near-resolver` is a development dependency of the differential test only;
-the shipped SDK graph contains one near-api-js version.

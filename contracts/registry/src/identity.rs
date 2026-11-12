@@ -12,6 +12,75 @@ use crate::events::Event;
 use crate::types::{AgentRecord, AgentRevoked, Digest32, IdentityData};
 use crate::{Contract, ContractExt, AGENT_STORAGE_CREDIT, GAS_CALLBACK, RECORD_OVERHEAD_BYTES};
 
+fn validate_agent_fields(prefix: &str, display_name: &str, capabilities: &[String]) {
+    require!(
+        !prefix.is_empty()
+            && prefix.len() <= 32
+            && !prefix.starts_with('-')
+            && !prefix.ends_with('-')
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_'),
+        "prefix: 1-32 chars of [a-z0-9-_], no leading/trailing '-'"
+    );
+    require!(
+        display_name.chars().count() <= 500,
+        "display_name > 500 chars"
+    );
+    require!(capabilities.len() <= 32, "too many capabilities");
+}
+
+impl Contract {
+    #[allow(clippy::too_many_arguments)]
+    fn build_agent_record(
+        &self,
+        agent: AccountId,
+        full_access_key: PublicKey,
+        uait_digest: Digest32,
+        display_name: String,
+        description: String,
+        source_protocol: String,
+        issuer_name: String,
+        issuer_did: String,
+        capabilities: Vec<String>,
+        expires_at_ns: u64,
+    ) -> AgentRecord {
+        AgentRecord {
+            agent,
+            operator: self.operator.clone(),
+            full_access_key,
+            uait_digest,
+            display_name,
+            description,
+            source_protocol,
+            issuer_name,
+            issuer_did,
+            capabilities,
+            created_at_ns: env::block_timestamp(),
+            expires_at_ns,
+            revoked: false,
+            revoked_at_ns: None,
+            revocation_reason: None,
+        }
+    }
+
+    fn store_agent(&mut self, record: AgentRecord) {
+        let agent = record.agent.clone();
+        let event = IdentityData {
+            agent: agent.clone(),
+            operator: record.operator.clone(),
+            uait_digest: record.uait_digest,
+            source_protocol: record.source_protocol.clone(),
+            expires_at_ns: record.expires_at_ns,
+        };
+        let _ = self
+            .storage_credit
+            .insert(agent.clone(), AGENT_STORAGE_CREDIT.as_yoctonear());
+        let _ = self.agents.insert(agent, record);
+        Event::IdentityCreated(vec![event]).emit();
+    }
+}
+
 #[near]
 impl Contract {
     /// Create the agent sub-account, hand it its single FullAccess key and stage the
@@ -43,31 +112,16 @@ impl Contract {
             env::predecessor_account_id() == self.operator,
             "operator only"
         );
-        require!(
-            !prefix.is_empty()
-                && prefix.len() <= 32
-                && !prefix.starts_with('-')
-                && !prefix.ends_with('-')
-                && prefix
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_'),
-            "prefix: 1-32 chars of [a-z0-9-_], no leading/trailing '-'"
-        );
-        require!(
-            display_name.chars().count() <= 500,
-            "display_name > 500 chars"
-        );
-        require!(capabilities.len() <= 32, "too many capabilities");
+        validate_agent_fields(&prefix, &display_name, &capabilities);
 
         let sub: AccountId = format!("{}.{}", prefix, env::current_account_id())
             .parse()
             .expect("valid sub-account id");
         require!(!self.agents.contains_key(&sub), "agent already registered");
 
-        let record = AgentRecord {
-            agent: sub.clone(),
-            operator: self.operator.clone(),
-            full_access_key: full_access_key.clone(),
+        let record = self.build_agent_record(
+            sub.clone(),
+            full_access_key.clone(),
             uait_digest,
             display_name,
             description,
@@ -75,12 +129,8 @@ impl Contract {
             issuer_name,
             issuer_did,
             capabilities,
-            created_at_ns: env::block_timestamp(),
             expires_at_ns,
-            revoked: false,
-            revoked_at_ns: None,
-            revocation_reason: None,
-        };
+        );
 
         let record_cost = self.storage_cost_for(
             Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES),
@@ -124,19 +174,7 @@ impl Contract {
         if self.agents.contains_key(&record.agent) {
             return true;
         }
-        let agent = record.agent.clone();
-        let event = IdentityData {
-            agent: agent.clone(),
-            operator: record.operator.clone(),
-            uait_digest: record.uait_digest,
-            source_protocol: record.source_protocol.clone(),
-            expires_at_ns: record.expires_at_ns,
-        };
-        let _ = self
-            .storage_credit
-            .insert(agent.clone(), AGENT_STORAGE_CREDIT.as_yoctonear());
-        let _ = self.agents.insert(agent, record);
-        Event::IdentityCreated(vec![event]).emit();
+        self.store_agent(record);
         true
     }
 
@@ -188,21 +226,7 @@ impl Contract {
             "agent must be a sub-account of this registry"
         );
         let prefix = &agent.as_str()[..agent.as_str().len() - suffix.len()];
-        require!(
-            !prefix.is_empty()
-                && prefix.len() <= 32
-                && !prefix.starts_with('-')
-                && !prefix.ends_with('-')
-                && prefix
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_'),
-            "prefix: 1-32 chars of [a-z0-9-_], no leading/trailing '-'"
-        );
-        require!(
-            display_name.chars().count() <= 500,
-            "display_name > 500 chars"
-        );
-        require!(capabilities.len() <= 32, "too many capabilities");
+        validate_agent_fields(prefix, &display_name, &capabilities);
 
         // Idempotent repair: the stored record (revoked or not) is authoritative and is
         // never overwritten. Return the deposit so a retried call traps no funds.
@@ -211,9 +235,8 @@ impl Contract {
             return true;
         }
 
-        let record = AgentRecord {
-            agent: agent.clone(),
-            operator: self.operator.clone(),
+        let record = self.build_agent_record(
+            agent.clone(),
             full_access_key,
             uait_digest,
             display_name,
@@ -222,29 +245,14 @@ impl Contract {
             issuer_name,
             issuer_did,
             capabilities,
-            created_at_ns: env::block_timestamp(),
             expires_at_ns,
-            revoked: false,
-            revoked_at_ns: None,
-            revocation_reason: None,
-        };
+        );
         let required = self
             .storage_cost_for(Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES))
             .saturating_add(self.agent_credit_cost(&agent));
         self.require_deposit(required);
 
-        let event = IdentityData {
-            agent: agent.clone(),
-            operator: record.operator.clone(),
-            uait_digest: record.uait_digest,
-            source_protocol: record.source_protocol.clone(),
-            expires_at_ns: record.expires_at_ns,
-        };
-        let _ = self
-            .storage_credit
-            .insert(agent.clone(), AGENT_STORAGE_CREDIT.as_yoctonear());
-        let _ = self.agents.insert(agent, record);
-        Event::IdentityCreated(vec![event]).emit();
+        self.store_agent(record);
         true
     }
 

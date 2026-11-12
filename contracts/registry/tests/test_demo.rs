@@ -7,65 +7,13 @@
 //! as `DEMO_TRANSCRIPT=<json>` for the coordinator to archive.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use near_api::{
-    signer::generate_secret_key, AccountId, Contract, NearToken, NetworkConfig, SecretKey, Signer,
-};
-use near_sdk::serde_json::{json, Value};
+use near_api::NetworkConfig;
+use near_sdk::serde_json::Value;
 
-type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
+mod common;
 
-struct SandboxAccount {
-    id: AccountId,
-    signer: Arc<Signer>,
-    secret: String,
-
-}
-
-async fn create_account(
-    sandbox: &near_sandbox::Sandbox,
-    account_id: &str,
-    balance_near: u128,
-) -> TestResult<SandboxAccount> {
-    let id: AccountId = account_id.parse()?;
-    let sandbox_id: near_sdk::AccountId = account_id.parse()?;
-    let secret: SecretKey = generate_secret_key()?;
-    let public_key = secret.public_key().to_string();
-    sandbox
-        .create_account(sandbox_id)
-        .initial_balance(NearToken::from_near(balance_near))
-        .public_key(public_key.clone())
-        .send()
-        .await
-        .map_err(|error| format!("creating sandbox account {account_id}: {error}"))?;
-    let signer = Signer::from_secret_key(secret.clone())?;
-    Ok(SandboxAccount {
-        id,
-        signer,
-        secret: secret.to_string(),
-    })
-}
-
-async fn deploy_registry(
-    registry: &SandboxAccount,
-    operator: &AccountId,
-    network: &NetworkConfig,
-) -> TestResult<Contract> {
-    let wasm_path = cargo_near_build::build_with_cli(Default::default())
-        .map_err(|error| format!("cargo-near-build failed: {error}"))?;
-    let wasm = std::fs::read(&wasm_path)
-        .map_err(|error| format!("reading built wasm at {wasm_path}: {error}"))?;
-    Contract::deploy(registry.id.clone())
-        .use_code(wasm)
-        .with_init_call("new", json!({ "operator": operator }))?
-        .max_gas()
-        .with_signer(registry.signer.clone())
-        .send_to(network)
-        .await?
-        .assert_success();
-    Ok(Contract(registry.id.clone()))
-}
+use common::{create_account, deploy_registry, TestResult};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn node_demo_zero_funds() -> TestResult {

@@ -10,9 +10,7 @@
 use near_sdk::{env, near, require, AccountId};
 
 use crate::events::Event;
-use crate::types::{
-    Interaction, InteractionData, ReputationAggregate, ReputationSummary, ReputationView,
-};
+use crate::types::{Interaction, InteractionData, ReputationAggregate, ReputationView};
 use crate::{Contract, ContractExt, RECORD_OVERHEAD_BYTES};
 
 /// Exponential-decay half-life in days.
@@ -146,8 +144,8 @@ impl Contract {
             outcome_weight(&outcome).expect("outcome must be success|partial|failure|timeout");
         require!(self.agents.contains_key(&agent), "unknown agent");
 
-        let key = Self::digest32(
-            &[
+        let key = env::sha256_array(
+            [
                 agent.as_bytes(),
                 counterparty.as_bytes(),
                 interaction_id.as_bytes(),
@@ -246,9 +244,9 @@ impl Contract {
         min_interactions: u32,
         category: Option<String>,
         limit: u32,
-    ) -> Vec<ReputationSummary> {
+    ) -> Vec<ReputationView> {
         let now = env::block_timestamp();
-        let mut results: Vec<ReputationSummary> = Vec::new();
+        let mut results: Vec<ReputationView> = Vec::new();
         for (agent, stored) in self.reputation.iter() {
             if stored.count < min_interactions {
                 continue;
@@ -269,7 +267,7 @@ impl Contract {
                     continue;
                 }
             }
-            results.push(ReputationSummary {
+            results.push(ReputationView {
                 agent: agent.clone(),
                 trust_score,
                 total_interactions: aggregate.count,

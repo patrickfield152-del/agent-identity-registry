@@ -69,7 +69,11 @@ def public_key_to_near(public_key: Any) -> str:
             return text
         if len(text) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in text):
             return "ed25519:" + _b58encode(bytes.fromhex(text))
-        raise NearSignerError(f"unrecognized NEAR public key {public_key!r}")
+        try:
+            raw = digest_bytes(text)
+        except NearSignerError as exc:
+            raise NearSignerError(f"unrecognized NEAR public key {public_key!r}") from exc
+        return "ed25519:" + _b58encode(raw)
     if hasattr(public_key, "public_bytes"):
         raw = public_key.public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw

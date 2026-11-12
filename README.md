@@ -29,7 +29,7 @@ cargo install cargo-near --version 0.23.0
 (cd sdk && pnpm install --prod)
 ```
 
-**See:** `sdk/node_modules/near-api-js` at 7.5.3; the dev-only `@kaytrust/did-near-resolver` is not installed in the production graph.
+**See:** `sdk/node_modules/near-api-js` at 7.5.3.
 
 ### 2. Check the contract for the wasm target
 

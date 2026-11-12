@@ -29,20 +29,8 @@ from attestix.auth.crypto import (
 )
 from attestix.audit import AuditEventEmitter, resolve_emitter, safe_emit
 from attestix.errors import ErrorCategory, log_and_format_error
+from attestix.signing.uait import MUTABLE_FIELDS as UAIT_MUTABLE_FIELDS, build_uait, sign_uait
 from attestix.storage.repository import DEFAULT_TENANT
-
-
-#: Fields excluded from the UAIT signature (mutable after creation). Mirrors
-#: ``IdentityService.MUTABLE_FIELDS``; duplicated here to avoid a service import
-#: cycle at module load.
-_UAIT_MUTABLE_FIELDS = {
-    "signature",
-    "revoked",
-    "revocation_reason",
-    "revoked_at",
-    "reputation_score",
-    "eu_compliance",
-}
 
 
 def _resolve_script(name: str) -> Path:
@@ -120,7 +108,7 @@ class DIDService:
                     "agent sub-account."
                 )
 
-            from attestix.config import DEFAULT_EXPIRY_DAYS, UAIT_VERSION
+            from attestix.config import DEFAULT_EXPIRY_DAYS
             from attestix.signing import InProcessSigner
             from attestix.signing.near_signer import (
                 generate_near_keypair,
@@ -135,33 +123,19 @@ class DIDService:
             signer = InProcessSigner()
             now = datetime.now(timezone.utc)
             expires = now + timedelta(days=DEFAULT_EXPIRY_DAYS)
-            uait = {
-                "version": UAIT_VERSION,
-                "agent_id": agent_id,
-                "agent": agent_id,
-                "did": signer.did,
-                "display_name": f"DID key agent {prefix}",
-                "description": "Named did:near sub-account created by create_did_key",
-                "source_protocol": "did",
-                "identity_token": "",
-                "token_info": {},
-                "capabilities": [],
-                "issuer": {"name": "self", "did": signer.did},
-                "created_at": now.isoformat(),
-                "expires_at": expires.isoformat(),
-                "revoked": False,
-                "revocation_reason": None,
-                "reputation_score": None,
-                "eu_compliance": None,
-                "signature": None,
-            }
-            signable = {
-                key: value
-                for key, value in uait.items()
-                if key not in _UAIT_MUTABLE_FIELDS
-            }
-            uait["signature"] = signer.sign(signable)
-            digest = uait_digest(uait, _UAIT_MUTABLE_FIELDS)
+            uait = build_uait(
+                agent_id=agent_id,
+                did=signer.did,
+                display_name=f"DID key agent {prefix}",
+                description="Named did:near sub-account created by create_did_key",
+                source_protocol="did",
+                created_at=now.isoformat(),
+                expires_at=expires.isoformat(),
+                issuer_name="self",
+                include_agent=True,
+            )
+            sign_uait(uait, signer)
+            digest = uait_digest(uait, UAIT_MUTABLE_FIELDS)
 
             record = {
                 "agent_id": agent_id,

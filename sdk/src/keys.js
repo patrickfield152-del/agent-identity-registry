@@ -30,7 +30,8 @@ export function resolveRegistryId(explicit) {
 
 export function resolveRpcUrl(explicit) {
   if (explicit) return explicit;
-  if (process.env.NEAR_RPC_URL) return process.env.NEAR_RPC_URL;
+  const configured = (process.env.NEAR_RPC_URL ?? "").trim();
+  if (configured) return configured;
   const network = (process.env.NEAR_NETWORK ?? "testnet").toLowerCase();
   return network === "mainnet"
     ? "https://rpc.mainnet.near.org"

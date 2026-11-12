@@ -69,7 +69,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-reports = ["weasyprint>=62.0"]
 # The REST API depends on FastAPI + uvicorn. Kept as an opt-in extra (not a
 # base runtime dep) so callers who only need the MCP server or Python services
 # do not get FastAPI dragged in.

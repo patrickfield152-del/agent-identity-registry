@@ -287,15 +287,3 @@ pub struct ReputationView {
     pub category_breakdown: Vec<(String, f64, u32)>,
     pub last_interaction_ns: u64,
 }
-
-/// One row of `query_reputation`: the same fields as [`ReputationView`], minus the
-/// per-category detail that callers can fetch individually.
-#[near(serializers = [json])]
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReputationSummary {
-    pub agent: AccountId,
-    pub trust_score: f64,
-    pub total_interactions: u32,
-    pub category_breakdown: Vec<(String, f64, u32)>,
-    pub last_interaction_ns: u64,
-}

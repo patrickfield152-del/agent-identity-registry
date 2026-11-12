@@ -11,8 +11,5 @@
   },
   "dependencies": {
     "near-api-js": "7.5.3"
-  },
-  "devDependencies": {
-    "@kaytrust/did-near-resolver": "1.4.12"
   }
 }

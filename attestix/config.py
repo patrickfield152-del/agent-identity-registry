@@ -321,7 +321,3 @@ def save_provenance(data: dict):
 
 def load_anchors() -> dict:
     return _repo().load_document("anchors")
-
-
-def save_anchors(data: dict):
-    _repo().save_document("anchors", data)

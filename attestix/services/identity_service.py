@@ -27,6 +27,12 @@ from attestix.config import (
 from attestix.audit import AuditEventEmitter, resolve_emitter, safe_emit
 from attestix.errors import ErrorCategory, log_and_format_error
 from attestix.signing import InProcessSigner, Signer
+from attestix.signing.uait import (
+    MUTABLE_FIELDS as UAIT_MUTABLE_FIELDS,
+    build_uait,
+    sign_uait,
+    signable_payload,
+)
 from attestix.storage.repository import DEFAULT_TENANT
 
 
@@ -39,8 +45,7 @@ class IdentityService:
     """Manages UAIT lifecycle."""
 
     # Fields excluded from signature (mutable after creation)
-    MUTABLE_FIELDS = {"signature", "revoked", "revocation_reason", "revoked_at",
-                      "reputation_score", "eu_compliance"}
+    MUTABLE_FIELDS = UAIT_MUTABLE_FIELDS
 
     def __init__(
         self,
@@ -62,7 +67,7 @@ class IdentityService:
 
     def _signable_payload(self, uait: dict) -> dict:
         """Extract only immutable fields for signing/verification."""
-        return {k: v for k, v in uait.items() if k not in self.MUTABLE_FIELDS}
+        return signable_payload(uait)
 
     @staticmethod
     def _mask_token(token: str) -> str:
@@ -125,36 +130,20 @@ class IdentityService:
         if identity_token:
             token_info = extract_identity_from_token(identity_token)
 
-        uait = {
-            "version": UAIT_VERSION,
-            "agent_id": agent_id,
-            # v0.4.0-rc.3 (P1 #2 of the rc.2 RC validation): populate the
-            # top-level `did` field with the issuer DID so callers reading
-            # `agent.get("did")` (the indie-dev quickstart and the public
-            # AgentFacts-style consumers) get a value rather than None.
-            "did": self._server_did,
-            "display_name": display_name,
-            "description": description,
-            "source_protocol": source_protocol,
-            "identity_token": self._mask_token(identity_token),
-            "token_info": token_info,
-            "capabilities": capabilities or [],
-            "issuer": {
-                "name": issuer_name or "self",
-                "did": self._server_did,
-            },
-            "created_at": now.isoformat(),
-            "expires_at": expires_at,
-            "revoked": False,
-            "revocation_reason": None,
-            "reputation_score": None,
-            "eu_compliance": None,
-            "signature": None,
-        }
-
-        # Sign only immutable fields (through the pluggable Signer seam)
-        signable = self._signable_payload(uait)
-        uait["signature"] = self._signer.sign(signable)
+        uait = build_uait(
+            agent_id=agent_id,
+            did=self._server_did,
+            display_name=display_name,
+            description=description,
+            source_protocol=source_protocol,
+            created_at=now.isoformat(),
+            expires_at=expires_at,
+            capabilities=capabilities,
+            identity_token=self._mask_token(identity_token),
+            token_info=token_info,
+            issuer_name=issuer_name or "self",
+        )
+        sign_uait(uait, self._signer)
 
         # Persist
         data = load_identities()
@@ -219,31 +208,21 @@ class IdentityService:
         if identity_token:
             token_info = extract_identity_from_token(identity_token)
 
-        uait = {
-            "version": UAIT_VERSION,
-            "agent_id": agent_id,
-            "agent": agent_id,
-            "did": self._server_did,
-            "display_name": display_name,
-            "description": description,
-            "source_protocol": source_protocol,
-            "identity_token": self._mask_token(identity_token),
-            "token_info": token_info,
-            "capabilities": capabilities,
-            "issuer": {
-                "name": issuer_name or "self",
-                "did": self._server_did,
-            },
-            "created_at": now.isoformat(),
-            "expires_at": expires_at,
-            "revoked": False,
-            "revocation_reason": None,
-            "reputation_score": None,
-            "eu_compliance": None,
-            "signature": None,
-        }
-        signable = self._signable_payload(uait)
-        uait["signature"] = self._signer.sign(signable)
+        uait = build_uait(
+            agent_id=agent_id,
+            did=self._server_did,
+            display_name=display_name,
+            description=description,
+            source_protocol=source_protocol,
+            created_at=now.isoformat(),
+            expires_at=expires_at,
+            capabilities=capabilities,
+            identity_token=self._mask_token(identity_token),
+            token_info=token_info,
+            issuer_name=issuer_name or "self",
+            include_agent=True,
+        )
+        sign_uait(uait, self._signer)
         digest = uait_digest(uait, self.MUTABLE_FIELDS)
         expires_dt = datetime.fromisoformat(expires_at)
 
@@ -689,21 +668,9 @@ class IdentityService:
     def _to_did_document(self, agent: dict) -> dict:
         """Convert UAIT to W3C DID Document format."""
         did = agent["issuer"].get("did", f"did:near:{agent['agent_id']}")
-        # Get public key multibase for the server DID
-        pub_multibase = None
-        if did.startswith("did:key:z"):
-            try:
-                from attestix.auth.crypto import did_key_to_public_key, public_key_to_bytes, ED25519_MULTICODEC_PREFIX
-                import base58
-                pub_key = did_key_to_public_key(did)
-                pub_bytes = public_key_to_bytes(pub_key)
-                pub_multibase = "z" + base58.b58encode(
-                    ED25519_MULTICODEC_PREFIX + pub_bytes
-                ).decode("ascii")
-            except (ValueError, ImportError):
-                pass  # Graceful degradation if crypto libs unavailable
-
+        # The did:key identifier already carries the exact multibase suffix.
         fragment = did_key_fragment(did) if did.startswith("did:key:z") else "#key-1"
+        pub_multibase = fragment[1:] if fragment.startswith("#z") else None
         vm = {
             "id": f"{did}{fragment}",
             "type": "Ed25519VerificationKey2020",

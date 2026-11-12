@@ -8,6 +8,7 @@
 // invariant for agent and issuer accounts) yields one unambiguous `#owner`.
 import { JsonRpcProvider } from "near-api-js";
 import { pathToFileURL } from "node:url";
+import { resolveRpcUrl } from "./keys.js";
 
 const PREFIX = "did:near:";
 const CONTEXT = [
@@ -44,7 +45,7 @@ export async function resolveNearDid(did, options = {}) {
   const provider =
     options.provider ??
     new JsonRpcProvider({
-      url: options.rpcUrl ?? process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org",
+      url: options.rpcUrl ?? resolveRpcUrl(),
     });
   const accessKeys = await provider.viewAccessKeyList({ accountId });
   return buildNearDidDocument(did, accessKeys.keys ?? []);

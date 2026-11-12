@@ -17,6 +17,8 @@ import {
   teraToGas,
 } from "near-api-js";
 
+import { resolveRpcUrl } from "./keys.js";
+
 function fail(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);
@@ -48,7 +50,7 @@ async function readStdin() {
 
 const request = await readStdin();
 const provider = new JsonRpcProvider({
-  url: request.rpcUrl ?? process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org",
+  url: request.rpcUrl ?? resolveRpcUrl(),
 });
 const contractId = requireString(request, "contractId");
 const method = requireString(request, "method");

@@ -90,6 +90,31 @@ function serialize(value) {
 }
 
 /**
+ * Serialize contract arguments with object insertion order preserved.
+ * BigInt is emitted as a bare integer; `undefined` object fields are skipped.
+ */
+export function serializeJson(value) {
+  if (typeof value === "bigint") return value.toString();
+  if (value === null) return "null";
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("contract arguments must use finite numbers");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(serializeJson).join(",")}]`;
+  if (typeof value === "object") {
+    const fields = [];
+    for (const [key, item] of Object.entries(value)) {
+      if (item === undefined) continue;
+      fields.push(`${JSON.stringify(key)}:${serializeJson(item)}`);
+    }
+    return `{${fields.join(",")}}`;
+  }
+  throw new Error(`unsupported contract argument: ${typeof value}`);
+}
+
+/**
  * Canonical UTF-8 bytes of a JSON object, excluding top-level keys in
  * `excludedKeys` (the recompute script drops `proof`/`credentialStatus`, the
  * identity path drops the UAIT mutable fields).

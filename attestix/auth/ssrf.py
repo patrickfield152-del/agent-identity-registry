@@ -135,10 +135,6 @@ def validate_and_pin_url(url: str) -> Tuple[Optional[str], List[str]]:
     return (None, safe_ips)
 
 
-class ResponseTooLargeError(Exception):
-    """Raised when an outbound response exceeds the configured size cap."""
-
-
 def fetch_json_pinned(
     url: str,
     *,
@@ -257,27 +253,3 @@ def fetch_json_pinned(
         )
 
     return (None, payload)
-
-
-def validate_redirect_target(redirect_url: str, original_hostname: str) -> Optional[str]:
-    """Validate a redirect target URL.
-
-    Blocks redirects to private IPs or different hosts (open redirect to internal).
-
-    Returns None if safe, or an error string if blocked.
-    """
-    try:
-        parsed = urlparse(redirect_url)
-    except Exception:
-        return "Invalid redirect URL"
-
-    redirect_host = parsed.hostname
-    if not redirect_host:
-        return "No hostname in redirect URL"
-
-    # Validate the redirect target the same way as the original
-    error = validate_url_host(redirect_host)
-    if error:
-        return f"Redirect blocked: {error}"
-
-    return None

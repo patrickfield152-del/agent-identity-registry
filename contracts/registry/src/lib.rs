@@ -143,13 +143,6 @@ impl Contract {
         }
     }
 
-    /// The raw 32-byte SHA-256 digest of `bytes`.
-    pub(crate) fn digest32(bytes: &[u8]) -> Digest32 {
-        env::sha256(bytes)
-            .try_into()
-            .expect("sha256 output is exactly 32 bytes")
-    }
-
     /// Bytes billed for a new `storage_credit` entry: the account key + u128 + overhead.
     pub(crate) fn credit_entry_bytes(agent: &AccountId) -> u64 {
         agent.as_bytes().len() as u64 + 16 + RECORD_OVERHEAD_BYTES

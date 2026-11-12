@@ -31,13 +31,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from attestix.audit import AuditEventEmitter, resolve_emitter, safe_emit
-from attestix.config import (
-    _get_env,
-    load_anchors,
-    load_credentials,
-    load_identities,
-    load_provenance,
-)
+from attestix.config import _get_env
 from attestix.errors import ErrorCategory, log_and_format_error
 from attestix.signing.near_signer import (
     VC_DIGEST_PROFILE,
@@ -297,7 +291,7 @@ class BlockchainService:
 
             entries = [
                 entry
-                for entry in load_provenance().get("audit_log", [])
+                for entry in self._document("provenance").get("audit_log", [])
                 if entry.get("agent_id") == agent_id
             ]
             if start_date:
@@ -394,7 +388,7 @@ class BlockchainService:
         # No chain configured: report local-only records instead of faking proof.
         local = [
             anchor
-            for anchor in load_anchors().get("anchors", [])
+            for anchor in self._document("anchors").get("anchors", [])
             if anchor.get("artifact_digest") == digest_b64
             or anchor.get("artifact_hash") == digest_hex
         ]
@@ -440,7 +434,7 @@ class BlockchainService:
                     )
                 }
         anchors = []
-        for anchor in load_anchors().get("anchors", []):
+        for anchor in self._document("anchors").get("anchors", []):
             artifact_id = anchor.get("artifact_id", "")
             batch_agent = (anchor.get("batch_metadata") or {}).get("agent_id")
             if agent_id in artifact_id or batch_agent == agent_id:
@@ -528,14 +522,18 @@ class BlockchainService:
             "anchored_at": created.get("anchored_at") or _now_iso(),
         }
 
+    def _document(self, collection: str) -> dict:
+        loader = getattr(self.repository, "load_document", None)
+        return loader(collection) if loader is not None else {}
+
     def _find_identity(self, agent_id: str) -> Optional[dict]:
-        for agent in load_identities().get("agents", []):
+        for agent in self._document("identities").get("agents", []):
             if agent.get("agent_id") == agent_id or agent.get("agent") == agent_id:
                 return agent
         return None
 
     def _find_credential(self, credential_id: str) -> Optional[dict]:
-        for credential in load_credentials().get("credentials", []):
+        for credential in self._document("credentials").get("credentials", []):
             if credential.get("id") == credential_id:
                 return credential
         return None

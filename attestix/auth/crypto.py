@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import stat
-import sys
 from pathlib import Path
 from typing import Optional, Tuple
 

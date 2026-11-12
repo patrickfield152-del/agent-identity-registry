@@ -42,7 +42,7 @@ import {
   teraToGas,
 } from "near-api-js";
 import { resolveNearDid } from "./did-near.mjs";
-import { addFunctionCallAccessKey, FCK_METHOD_NAMES } from "./keys.js";
+import { addFunctionCallAccessKey, FCK_METHOD_NAMES, resolveRpcUrl } from "./keys.js";
 import {
   UAIT_MUTABLE_FIELDS,
   VC_MUTABLE_FIELDS,
@@ -50,14 +50,10 @@ import {
   canonicalizeJson,
   capabilitiesDigest,
   digestFromJson,
+  serializeJson,
   sha256,
-  toWireDigest,
 } from "./canonical.mjs";
 
-const NETWORK_DEFAULT_RPC = {
-  testnet: "https://rpc.testnet.near.org",
-  mainnet: "https://rpc.mainnet.near.org",
-};
 
 // create_agent forwards 10 mN to the sub-account, the registry pays the 7 mN
 // CreateAccount charge, and the operator prepays 50 mN of agent storage credit
@@ -117,10 +113,7 @@ function loadConfig() {
   const operatorKey = (env.SKJOLD_OPERATOR_KEY ?? "").trim();
   const issuerKey = (env.SKJOLD_VC_ISSUER_KEY ?? "").trim();
   const network = (env.NEAR_NETWORK ?? "testnet").trim().toLowerCase();
-  const rpcUrl =
-    (env.NEAR_RPC_URL ?? "").trim() ||
-    NETWORK_DEFAULT_RPC[network] ||
-    NETWORK_DEFAULT_RPC.testnet;
+  const rpcUrl = resolveRpcUrl();
 
   const missing = [];
   if (!registryId) missing.push("SKJOLD_REGISTRY_ID");
@@ -181,30 +174,7 @@ function executionFailure(outcome) {
 // nanosecond timestamps past 2^53; the contract's u64 deserializer needs a bare
 // JSON integer, not a string. Digest32 stays the W2 wire form (32 numbers).
 function encodeArgs(value) {
-  return new TextEncoder().encode(serializeArg(value));
-}
-
-function serializeArg(value) {
-  if (typeof value === "bigint") return value.toString();
-  if (value === null) return "null";
-  if (typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error("contract arguments must use finite numbers");
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(serializeArg).join(",")}]`;
-  }
-  if (typeof value === "object") {
-    const fields = [];
-    for (const [key, item] of Object.entries(value)) {
-      if (item === undefined) continue;
-      fields.push(`${JSON.stringify(key)}:${serializeArg(item)}`);
-    }
-    return `{${fields.join(",")}}`;
-  }
-  throw new Error(`unsupported contract argument: ${typeof value}`);
+  return new TextEncoder().encode(serializeJson(value));
 }
 
 async function view(provider, contractId, method, args) {

@@ -141,6 +141,8 @@ class HttpNearClient:
     ) -> None:
         if not registry_id:
             raise ValueError("HttpNearClient requires a registry account id")
+        from attestix.signing.near_signer import default_rpc_url
+
         self.registry_id = registry_id
         self.rpc_url = rpc_url or default_rpc_url()
         self.timeout = timeout
@@ -234,6 +236,8 @@ class NodeNearClient:
             raise ValueError(
                 "NodeNearClient requires registry_id, signer_id and secret_key"
             )
+        from attestix.signing.near_signer import default_rpc_url, default_tx_script
+
         self.registry_id = registry_id
         self.signer_id = signer_id
         self.secret_key = secret_key
@@ -281,21 +285,6 @@ class NodeNearClient:
 # ---------------------------------------------------------------------------
 
 
-def default_rpc_url(network: Optional[str] = None) -> str:
-    """Return the canonical RPC URL for the configured NEAR network."""
-    value = os.getenv("NEAR_RPC_URL")
-    if value:
-        return value
-    chosen = (network or os.getenv("NEAR_NETWORK") or "testnet").strip().lower()
-    if chosen == "mainnet":
-        return "https://rpc.mainnet.near.org"
-    return "https://rpc.testnet.near.org"
-
-
-def default_tx_script() -> Path:
-    """Return the checked-in Node transaction transport path."""
-    return Path(__file__).resolve().parents[2] / "sdk" / "src" / "tx.mjs"
-
 
 def client_from_env() -> Optional[NearContractClient]:
     """Build the registry client from canonical skjold environment names.
@@ -308,6 +297,8 @@ def client_from_env() -> Optional[NearContractClient]:
     if not registry_id:
         return None
     network = (os.getenv("NEAR_NETWORK") or "testnet").strip().lower()
+    from attestix.signing.near_signer import default_rpc_url
+
     rpc_url = default_rpc_url(network)
     operator_key = os.getenv("SKJOLD_OPERATOR_KEY", "").strip()
     if not operator_key:
@@ -408,26 +399,14 @@ def _public_key_wire(value: Any) -> str:
     """Return the ``ed25519:<base58(raw 32)>`` wire form of a public key."""
     if isinstance(value, str):
         text = value.strip()
-        if text.startswith("ed25519:") or text.startswith("secp256k1:"):
+        if text.startswith(("ed25519:", "secp256k1:")):
             return text
-        try:
-            return _public_key_wire(_digest_bytes(text))
-        except ValueError:
-            raise ValueError(f"unrecognized public key: {value!r}")
-    raw: bytes
-    if hasattr(value, "public_bytes"):
-        from cryptography.hazmat.primitives import serialization
+    from attestix.signing.near_signer import NearSignerError, public_key_to_near
 
-        raw = value.public_bytes(
-            serialization.Encoding.Raw, serialization.PublicFormat.Raw
-        )
-    else:
-        raw = _digest_bytes(value)
     try:
-        import base58
-    except ImportError as exc:  # pragma: no cover - base58 is a runtime dep
-        raise RuntimeError("base58 is required to format NEAR public keys") from exc
-    return "ed25519:" + base58.b58encode(raw).decode("ascii")
+        return public_key_to_near(value)
+    except NearSignerError as exc:
+        raise ValueError(f"unrecognized public key: {value!r}") from exc
 
 
 def _artifact_wire(artifact_type: str) -> str:
@@ -620,13 +599,6 @@ class NearRepository(Repository):
         document["records"].setdefault(collection, {}).pop(key, None)
         self._save_body_store(document)
         return existed
-
-    def _body_keys_by_field(self, collection: str, field: str, value: str) -> List[str]:
-        return [
-            key
-            for key, record in self._body_records(collection).items()
-            if isinstance(record, dict) and record.get(field) == value
-        ]
 
     # --- projection helpers ------------------------------------------------
 
