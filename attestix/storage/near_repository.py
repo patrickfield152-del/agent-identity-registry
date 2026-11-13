@@ -84,10 +84,6 @@ GROWTH_DEPOSIT_YOCTO = "5000000000000000000"  # 5 mN
 #: 100 TGas covers a registry call; the protocol ceiling is 1 PGas per tx.
 DEFAULT_GAS_TGAS = 100
 
-#: Profile label for the project's canonical VC digest. It is NOT the stock
-#: did:near ProofType cid, which hashes the whole credential.
-VC_DIGEST_PROFILE = "skjold-vc-digest/v1"
-
 _TENANT_ERROR = (
     "NearRepository is single-tenant: tenant_id must be "
     f"{DEFAULT_TENANT!r} (no env var or header selects another tenant)"
