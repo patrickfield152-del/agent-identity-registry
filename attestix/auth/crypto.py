@@ -5,6 +5,7 @@ Handles key generation, signing, verification, and did:key creation.
 
 import base64
 import json
+import unicodedata
 import logging
 import os
 import stat
@@ -315,7 +316,7 @@ def _normalize_for_signing(obj):
     Applies NFC Unicode normalization for strings and ensures consistent
     number representation (integers stay integers, floats use minimal form).
     """
-    import unicodedata
+
     if isinstance(obj, str):
         return unicodedata.normalize("NFC", obj)
     elif isinstance(obj, bool):
