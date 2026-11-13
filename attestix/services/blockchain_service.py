@@ -39,6 +39,7 @@ from attestix.signing.near_signer import (
     digest_to_hex,
     vc_digest,
 )
+from attestix.storage.near_repository import ARTIFACT_TYPE_WIRE as _ARTIFACT_WIRE
 from attestix.storage.repository import DEFAULT_TENANT
 
 
@@ -474,12 +475,7 @@ class BlockchainService:
             estimate = client.view(
                 "estimate_anchor_cost",
                 {
-                    "artifact_type": {
-                        "identity": "Identity",
-                        "credential": "Credential",
-                        "declaration": "Declaration",
-                        "audit_batch": "AuditBatch",
-                    }[artifact_key],
+                    "artifact_type": _ARTIFACT_WIRE[artifact_key],
                     "artifact_id_len": int(artifact_id_len),
                     "has_subject": bool(has_subject),
                 },
