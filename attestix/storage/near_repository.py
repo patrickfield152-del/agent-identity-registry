@@ -364,35 +364,24 @@ def _ns_to_iso(value: Any) -> Optional[str]:
 
 def _digest_bytes(value: Any) -> bytes:
     """Coerce a contract/base64/hex/raw digest to 32 raw bytes."""
-    if isinstance(value, (bytes, bytearray)):
-        raw = bytes(value)
-        if len(raw) != 32:
-            raise ValueError(f"digest must be 32 bytes, got {len(raw)}")
-        return raw
-    if isinstance(value, (list, tuple)):
-        if len(value) != 32:
-            raise ValueError("digest array must contain 32 bytes")
-        return bytes(int(part) & 0xFF for part in value)
-    if isinstance(value, str):
-        text = value.strip()
-        if len(text) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in text):
-            return bytes.fromhex(text)
-        try:
-            raw = base64.b64decode(text, validate=True)
-        except Exception as exc:
-            raise ValueError(f"digest is neither hex nor standard Base64: {value!r}") from exc
-        if len(raw) != 32:
-            raise ValueError(f"digest must decode to 32 bytes, got {len(raw)}")
-        return raw
-    raise ValueError("digest must be bytes, Base64 string, hex string or byte list")
+    from attestix.signing.near_signer import NearSignerError, digest_bytes
+
+    try:
+        return digest_bytes(value)
+    except NearSignerError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _digest_b64(value: Any) -> str:
-    return base64.b64encode(_digest_bytes(value)).decode("ascii")
+    from attestix.signing.near_signer import digest_to_base64
+
+    return digest_to_base64(value)
 
 
 def _digest_hex(value: Any) -> str:
-    return _digest_bytes(value).hex()
+    from attestix.signing.near_signer import digest_to_hex
+
+    return digest_to_hex(value)
 
 
 def _public_key_wire(value: Any) -> str:
