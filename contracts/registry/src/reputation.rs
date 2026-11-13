@@ -71,26 +71,31 @@ fn push_to_window(window: &mut Vec<Interaction>, interaction: Interaction) {
 /// Per-category `(category, decayed score, count)` rows over the recent window.
 fn category_breakdown(interactions: &[Interaction], now_ns: u64) -> Vec<(String, f64, u32)> {
     let lambda = decay_lambda();
+    // Keyed accumulator: the window has at most RECENT_WINDOW entries, but a
+    // per-entry linear position scan is O(window * categories); a keyed map is
+    // O(window) with the same float order of operations per category.
     let mut rows: Vec<(String, f64, f64, u32)> = Vec::new();
+    let mut index: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for interaction in interactions {
         let dt = now_ns.saturating_sub(interaction.recorded_at_ns) as f64 / 1e9;
         let decay = (-lambda * dt).exp();
-        let existing = rows
-            .iter()
-            .position(|(category, _, _, _)| category == &interaction.category);
-        match existing {
-            Some(index) => {
-                let row = &mut rows[index];
+        let entry = index.entry(interaction.category.as_str());
+        match entry {
+            std::collections::hash_map::Entry::Occupied(occupied) => {
+                let row = &mut rows[*occupied.get()];
                 row.1 += interaction.weight * decay;
                 row.2 += decay;
                 row.3 += 1;
             }
-            None => rows.push((
-                interaction.category.clone(),
-                interaction.weight * decay,
-                decay,
-                1,
-            )),
+            std::collections::hash_map::Entry::Vacant(vacant) => {
+                vacant.insert(rows.len());
+                rows.push((
+                    interaction.category.clone(),
+                    interaction.weight * decay,
+                    decay,
+                    1,
+                ));
+            }
         }
     }
     let mut breakdown: Vec<(String, f64, u32)> = rows
