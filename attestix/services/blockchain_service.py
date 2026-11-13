@@ -549,15 +549,9 @@ class BlockchainService:
 
     @staticmethod
     def _expiry_ns(value: Optional[str]) -> int:
-        if not value:
-            return 0
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return 0
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return int(parsed.timestamp() * 1_000_000_000)
+        from attestix.storage.near_repository import _iso_to_ns
+
+        return _iso_to_ns(value)
 
     @staticmethod
     def _near_token_yocto(estimate) -> str:
