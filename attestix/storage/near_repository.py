@@ -247,6 +247,7 @@ class NodeNearClient:
         self.timeout = timeout
         self.script_path = Path(script_path) if script_path else default_tx_script()
         self._viewer = HttpNearClient(registry_id, self.rpc_url)
+        self._signer: Optional[object] = None
 
     def view(self, method: str, args: Optional[dict] = None) -> Any:
         return self._viewer.view(method, args)
@@ -265,17 +266,20 @@ class NodeNearClient:
     ) -> dict:
         from attestix.signing.near_signer import NodeTxSigner
 
-        signer = NodeTxSigner(
-            self.signer_id,
-            self.secret_key,
-            self.registry_id,
-            rpc_url=self.rpc_url,
-            network=self.network,
-            node_bin=self.node_bin,
-            script_path=str(self.script_path),
-            timeout=self.timeout,
-        )
-        return signer.call(
+        # NodeTxSigner is configuration-only state; building it once per client
+        # avoids re-validating identical kwargs on every signed call.
+        if self._signer is None:
+            self._signer = NodeTxSigner(
+                self.signer_id,
+                self.secret_key,
+                self.registry_id,
+                rpc_url=self.rpc_url,
+                network=self.network,
+                node_bin=self.node_bin,
+                script_path=str(self.script_path),
+                timeout=self.timeout,
+            )
+        return self._signer.call(
             method, args, deposit_yocto=deposit_yocto, gas_tgas=gas_tgas
         )
 
