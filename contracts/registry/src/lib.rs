@@ -100,9 +100,8 @@ impl Contract {
 impl Contract {
     /// Borsh-serialized length of a record, which is what the runtime actually stores.
     pub(crate) fn borsh_len<T: near_sdk::borsh::BorshSerialize>(v: &T) -> u64 {
-        near_sdk::borsh::to_vec(v)
-            .expect("contract records always borsh-serialize")
-            .len() as u64
+        near_sdk::borsh::object_length(v)
+            .expect("contract records always borsh-serialize") as u64
     }
 
     /// Cost of `bytes` of contract storage at the runtime's current byte price.
@@ -151,5 +150,31 @@ impl Contract {
     /// Total registration charge for the credit: the credit itself plus its entry.
     pub(crate) fn agent_credit_cost(&self, agent: &AccountId) -> NearToken {
         AGENT_STORAGE_CREDIT.saturating_add(self.storage_cost_for(Self::credit_entry_bytes(agent)))
+    }
+}
+
+#[cfg(test)]
+mod size_tests {
+    use super::*;
+
+    #[test]
+    fn borsh_len_matches_serialized_length() {
+        let account: AccountId = "agent1.registry.skjold.testnet".parse().unwrap();
+        let record = crate::types::AnchorRecord {
+            artifact_digest: [7u8; 32],
+            artifact_type: crate::types::ArtifactType::Identity,
+            artifact_id: "artifact-1".to_string(),
+            subject_account: Some(account),
+            anchored_by: "operator.registry.skjold.testnet".parse().unwrap(),
+            block_height: 42,
+            block_timestamp_ns: 1_700_000_000_000_000_000,
+        };
+        let serialized = near_sdk::borsh::to_vec(&record).unwrap();
+        assert_eq!(Contract::borsh_len(&record), serialized.len() as u64);
+        let text = "length-check".to_string();
+        assert_eq!(
+            Contract::borsh_len(&text),
+            near_sdk::borsh::to_vec(&text).unwrap().len() as u64
+        );
     }
 }

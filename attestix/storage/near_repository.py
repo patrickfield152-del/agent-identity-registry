@@ -38,6 +38,7 @@ cycle while ``config._repo()`` is being initialised.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import base64
 import hashlib
 import json
@@ -70,6 +71,9 @@ ARTIFACT_TYPE_WIRE = {
 #: Contract list views are bounded; the demo registry lists at most this many
 #: records per projection pass.
 VIEW_LIMIT = 1000
+
+#: Bound concurrent anchor view reads; public RPC providers rate-limit bursts.
+PARALLEL_VIEW_WORKERS = 8
 
 #: Storage deposits (yoctoNEAR). Growth methods refund the excess, so these are
 #: safe upper bounds: create_agent needs >= 17 mN + record storage; the other
@@ -1371,9 +1375,16 @@ class NearRepository(Repository):
         )
         return [self._reputation_summary(summary) for summary in summaries]
 
+    @staticmethod
+    def _matches_filters(record: dict, filters: dict) -> bool:
+        return all(record.get(key) == value for key, value in filters.items())
+
     def _list_anchors(self, filters: dict, limit: Optional[int]) -> List[dict]:
         tombstones = self._tombstones("anchors")
         subject = filters.get("subject_account") or filters.get("agent")
+        take = None if limit is None else max(0, int(limit))
+        if take == 0:
+            return []
         results: List[dict] = []
         seen = set()
         if isinstance(subject, str) and subject:
@@ -1382,16 +1393,36 @@ class NearRepository(Repository):
                 if digest in tombstones or digest in seen:
                     continue
                 seen.add(digest)
-                results.append(
-                    self._anchor_document(
-                        record, self._body_record("anchors", digest), digest
-                    )
+                document = self._anchor_document(
+                    record, self._body_record("anchors", digest), digest
                 )
+                if not self._matches_filters(document, filters):
+                    continue
+                results.append(document)
+                if take is not None and len(results) >= take:
+                    return results
+        pending = []
         for digest, body in self._body_records("anchors").items():
             if digest in seen or digest in tombstones or not isinstance(body, dict):
                 continue
-            record = self._get_anchor_view(digest)
-            results.append(self._anchor_document(record, body, digest))
+            # Local body fields can reject a candidate before its chain read.
+            if not all(body.get(key) == value for key, value in filters.items() if key in body):
+                continue
+            pending.append((digest, body))
+        if len(pending) > 1:
+            with ThreadPoolExecutor(
+                max_workers=min(PARALLEL_VIEW_WORKERS, len(pending))
+            ) as pool:
+                records = list(pool.map(self._get_anchor_view, [d for d, _ in pending]))
+        else:
+            records = [self._get_anchor_view(digest) for digest, _ in pending]
+        for (digest, body), record in zip(pending, records):
+            document = self._anchor_document(record, body, digest)
+            if not self._matches_filters(document, filters):
+                continue
+            results.append(document)
+            if take is not None and len(results) >= take:
+                return results
         return results
 
     def update(

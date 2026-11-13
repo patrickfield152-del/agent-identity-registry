@@ -812,3 +812,18 @@ def test_no_network_socket_access(repo, monkeypatch):
     repo.create("identities", dict(IDENTITY_RECORD), id_field="agent_id")
     repo.get("identities", AGENT, id_field="agent_id")
     repo.list("identities", id_field="agent_id")
+
+def test_list_anchors_filters_before_chain_read_and_honors_limit(repo, client):
+    for index in range(4):
+        record = dict(ANCHOR_RECORD)
+        record["artifact_digest"] = base64.b64encode(bytes([index + 1]) * 32).decode()
+        record["artifact_type"] = "declaration" if index < 2 else "credential"
+        record["artifact_id"] = f"anchor-{index}"
+        repo.create("anchors", record, id_field="artifact_digest")
+
+    client.views.clear()
+    rows = repo.list("anchors", filters={"artifact_type": "declaration"}, limit=2)
+
+    assert len(rows) == 2
+    assert all(row["artifact_type"] == "declaration" for row in rows)
+    assert len([view for view in client.views if view["method"] == "get_anchor"]) == 2

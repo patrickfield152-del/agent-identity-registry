@@ -246,15 +246,10 @@ impl Contract {
         limit: u32,
     ) -> Vec<ReputationView> {
         let now = env::block_timestamp();
-        let mut results: Vec<ReputationView> = Vec::new();
+        let lambda = decay_lambda();
+        let mut candidates: Vec<(f64, AccountId, u32, u64, &[Interaction])> = Vec::new();
         for (agent, stored) in self.reputation.iter() {
             if stored.count < min_interactions {
-                continue;
-            }
-            let mut aggregate = stored.clone();
-            decay_to(&mut aggregate, now);
-            let trust_score = score(&aggregate);
-            if trust_score < min_score || trust_score > max_score {
                 continue;
             }
             let window = self
@@ -267,27 +262,58 @@ impl Contract {
                     continue;
                 }
             }
-            results.push(ReputationView {
-                agent: agent.clone(),
+            let dt = now.saturating_sub(stored.last_update_ns) as f64 / 1e9;
+            let factor = if dt > 0.0 { (-lambda * dt).exp() } else { 1.0 };
+            let sum_decay = stored.sum_decay * factor;
+            let trust_score = if sum_decay == 0.0 {
+                0.0
+            } else {
+                (stored.sum_w_decay * factor) / sum_decay
+            };
+            if trust_score < min_score || trust_score > max_score {
+                continue;
+            }
+            candidates.push((
                 trust_score,
-                total_interactions: aggregate.count,
-                category_breakdown: category_breakdown(window, now),
-                last_interaction_ns: stored.last_update_ns,
-            });
+                agent.clone(),
+                stored.count,
+                stored.last_update_ns,
+                window,
+            ));
         }
-        results.sort_by(|a, b| {
-            b.trust_score
-                .total_cmp(&a.trust_score)
-                .then_with(|| a.agent.as_str().cmp(b.agent.as_str()))
+        let take = (limit as usize).min(candidates.len());
+        if take < candidates.len() {
+            candidates.select_nth_unstable_by(take, |a, b| {
+                b.0.total_cmp(&a.0)
+                    .then_with(|| a.1.as_str().cmp(b.1.as_str()))
+            });
+            candidates.truncate(take);
+        }
+        candidates.sort_by(|a, b| {
+            b.0.total_cmp(&a.0)
+                .then_with(|| a.1.as_str().cmp(b.1.as_str()))
         });
-        results.truncate(limit as usize);
-        results
+        candidates
+            .into_iter()
+            .map(|(trust_score, agent, total_interactions, last_interaction_ns, window)| {
+                ReputationView {
+                    agent,
+                    trust_score,
+                    total_interactions,
+                    category_breakdown: category_breakdown(window, now),
+                    last_interaction_ns,
+                }
+            })
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::testing_env;
 
     /// Deterministic pseudo-random history of 1000 interactions with increasing
     /// timestamps.
@@ -376,5 +402,52 @@ mod tests {
         assert_eq!(outcome_weight("failure"), Some(0.0));
         assert_eq!(outcome_weight("timeout"), Some(0.2));
         assert_eq!(outcome_weight("unknown"), None);
+    }
+    #[test]
+    fn query_reputation_orders_limits_and_builds_breakdowns_for_selected_rows() {
+        testing_env!(VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .build());
+        let mut contract = Contract::new(accounts(0));
+        for (agent, weighted, category) in [
+            (accounts(1), 1.0, "task"),
+            (accounts(2), 0.8, "task"),
+            (accounts(3), 0.5, "other"),
+        ] {
+            contract.reputation.insert(
+                agent.clone(),
+                ReputationAggregate {
+                    sum_w_decay: weighted,
+                    sum_decay: 1.0,
+                    last_update_ns: 0,
+                    count: 1,
+                },
+            );
+            contract.interactions.insert(
+                agent,
+                vec![Interaction {
+                    counterparty: accounts(5),
+                    interaction_id: format!("ix-{category}"),
+                    outcome: "success".to_string(),
+                    category: category.to_string(),
+                    details: String::new(),
+                    weight: 1.0,
+                    recorded_at_ns: 0,
+                }],
+            );
+        }
+
+        let rows = contract.query_reputation(0.0, 1.0, 1, None, 2);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].agent, accounts(1));
+        assert_eq!(rows[1].agent, accounts(2));
+        assert!(rows[0].trust_score > rows[1].trust_score);
+        assert!(!rows[0].category_breakdown.is_empty());
+        assert!(!rows[1].category_breakdown.is_empty());
+
+        assert!(contract.query_reputation(0.0, 1.0, 1, None, 0).is_empty());
+        let filtered = contract.query_reputation(0.0, 1.0, 1, Some("task".to_string()), 10);
+        assert_eq!(filtered.len(), 2);
     }
 }
