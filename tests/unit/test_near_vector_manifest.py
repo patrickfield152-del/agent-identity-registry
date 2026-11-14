@@ -112,7 +112,7 @@ def _decode_jwt(token, public_key):
     )
 
 
-def test_manifest_has_the_seven_expected_vectors():
+def test_manifest_has_seven_vectors():
     assert MANIFEST["version"] == "v1"
     assert MANIFEST["spec"] == "skjold-verify-conformance"
     assert MANIFEST["vector_count"] == 7
@@ -128,7 +128,7 @@ def test_manifest_has_the_seven_expected_vectors():
     assert len(bytes.fromhex(MANIFEST["issuer_seed_hex"])) == 32
 
 
-def test_canonicalize_vector_matches_byte_for_byte():
+def test_canonicalize_vector_exact():
     vector = BY_ID["canon-001"]
     canonical = canonicalize_json(vector["input"])
 
@@ -146,7 +146,7 @@ def test_canonicalize_vector_matches_byte_for_byte():
     assert utf8.endswith('"z_last":true}')
 
 
-def test_did_key_vector_round_trips_the_raw_key():
+def test_did_key_vector_roundtrip():
     vector = BY_ID["didkey-001"]
     expected = vector["expected"]
     did = vector["input"]["did"]
@@ -176,7 +176,7 @@ def test_did_key_vector_round_trips_the_raw_key():
 
 
 @pytest.mark.parametrize("vector_id", VC_VECTOR_IDS)
-def test_vc_vector_signature_and_verdict(vector_id):
+def test_vc_vector_verdict(vector_id):
     vector = BY_ID[vector_id]
     expected = vector["expected"]
     payload = _vc_payload(vector)
@@ -215,7 +215,7 @@ def test_vc_vector_signature_and_verdict(vector_id):
 
 
 @pytest.mark.parametrize("vector_id", UCAN_VECTOR_IDS)
-def test_ucan_vector_signatures_and_attenuation(vector_id):
+def test_ucan_vector_attenuation(vector_id):
     vector = BY_ID[vector_id]
     expected = vector["expected"]
     assert vector["signing_alg"] == "EdDSA"

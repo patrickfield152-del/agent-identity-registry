@@ -1,81 +1,52 @@
-"""Tests for SSRF protection in auth/ssrf.py."""
+"""Behavior and security tests for SSRF protection in auth/ssrf.py."""
 
+import random
+import time
 from unittest.mock import patch
+
+import pytest
 
 from attestix.auth.ssrf import validate_url_host
 
 
-class TestBlockedHosts:
-    """Tests that private, loopback, and metadata hostnames are blocked."""
-
-    def test_blocks_localhost(self):
-        assert validate_url_host("localhost") is not None
-
-    def test_blocks_loopback_ipv4(self):
-        assert validate_url_host("127.0.0.1") is not None
-
-    def test_blocks_loopback_ipv6(self):
-        assert validate_url_host("::1") is not None
-
-    def test_blocks_private_10x(self):
-        assert validate_url_host("10.0.0.1") is not None
-
-    def test_blocks_private_192(self):
-        assert validate_url_host("192.168.1.1") is not None
-
-    def test_blocks_private_172(self):
-        assert validate_url_host("172.16.0.1") is not None
-
-    def test_blocks_metadata_endpoint(self):
-        assert validate_url_host("169.254.169.254") is not None
-
-    def test_blocks_local_suffix(self):
-        assert validate_url_host("myserver.local") is not None
-
-    def test_blocks_internal_suffix(self):
-        assert validate_url_host("api.internal") is not None
-
-    def test_blocks_metadata_google(self):
-        assert validate_url_host("metadata.google.internal") is not None
-
-    def test_blocks_zero_address(self):
-        assert validate_url_host("0.0.0.0") is not None
+BLOCKED_HOSTS = [
+    "localhost", "127.0.0.1", "::1", "10.0.0.1", "192.168.1.1",
+    "172.16.0.1", "169.254.169.254", "myserver.local", "api.internal",
+    "metadata.google.internal", "0.0.0.0", "", "[::1]",
+]
 
 
-class TestAllowedHosts:
-    """Tests that public IP addresses and hostnames are allowed."""
-
-    def test_allows_public_ip(self):
-        # Mock DNS resolution to return a public IP
-        with patch("attestix.auth.ssrf.socket.getaddrinfo") as mock_dns:
-            mock_dns.return_value = [
-                (2, 1, 0, "", ("93.184.216.34", 0)),  # example.com
-            ]
-            assert validate_url_host("example.com") is None
-
-    def test_allows_public_ip_direct(self):
-        assert validate_url_host("8.8.8.8") is None
+@pytest.mark.parametrize("host", BLOCKED_HOSTS)
+def test_blocks_unsafe_host(host):
+    assert validate_url_host(host) is not None
 
 
-class TestDnsRebinding:
-    """Tests that DNS rebinding attacks resolving to private IPs are blocked."""
-
-    def test_blocks_hostname_resolving_to_private(self):
-        """A public hostname that resolves to 127.0.0.1 should be blocked."""
-        with patch("attestix.auth.ssrf.socket.getaddrinfo") as mock_dns:
-            mock_dns.return_value = [
-                (2, 1, 0, "", ("127.0.0.1", 0)),
-            ]
-            result = validate_url_host("evil.example.com")
-            assert result is not None
-            assert "private" in result.lower() or "blocked" in result.lower()
+def test_allows_public_ip_and_dns():
+    assert validate_url_host("8.8.8.8") is None
+    with patch("attestix.auth.ssrf.socket.getaddrinfo") as mock_dns:
+        mock_dns.return_value = [(2, 1, 0, "", ("93.184.216.34", 0))]
+        assert validate_url_host("example.com") is None
 
 
-class TestEdgeCases:
-    """Tests for edge cases like empty hostnames and IPv6 bracket stripping."""
+def test_blocks_dns_rebinding():
+    with patch("attestix.auth.ssrf.socket.getaddrinfo") as mock_dns:
+        mock_dns.return_value = [(2, 1, 0, "", ("127.0.0.1", 0))]
+        result = validate_url_host("evil.example.com")
+        assert result is not None
+        assert "private" in result.lower() or "blocked" in result.lower()
 
-    def test_empty_hostname(self):
-        assert validate_url_host("") is not None
 
-    def test_ipv6_brackets_stripped(self):
-        assert validate_url_host("[::1]") is not None
+def test_proactive_host_check_budget():
+    t0 = time.perf_counter()
+    for _ in range(200):
+        assert validate_url_host("10.1.2.3") is not None
+    assert (time.perf_counter() - t0) < 0.25
+
+
+def test_reactive_private_cidr_fuzz():
+    rng = random.Random(1794653767)
+    for _ in range(50):
+        ip = f"10.{rng.randrange(256)}.{rng.randrange(256)}.{rng.randrange(1, 255)}"
+        assert validate_url_host(ip) is not None
+        ip_192 = f"192.168.{rng.randrange(256)}.{rng.randrange(1, 255)}"
+        assert validate_url_host(ip_192) is not None

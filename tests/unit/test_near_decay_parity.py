@@ -205,7 +205,7 @@ FIXTURES = {
 
 
 @pytest.mark.parametrize("fixture", list(FIXTURES), ids=list(FIXTURES))
-def test_decayed_aggregate_matches_origin_score(fixture):
+def test_aggregate_matches_origin(fixture):
     records, now_ns = FIXTURES[fixture]()
     agent_id = records[0]["agent_id"]
 
@@ -217,7 +217,7 @@ def test_decayed_aggregate_matches_origin_score(fixture):
 
 
 @pytest.mark.parametrize("fixture", list(FIXTURES), ids=list(FIXTURES))
-def test_recent_window_does_not_change_the_aggregate_score(fixture):
+def test_window_preserves_aggregate(fixture):
     records, now_ns = FIXTURES[fixture]()
     agent_id = records[0]["agent_id"]
 
@@ -233,7 +233,7 @@ def test_recent_window_does_not_change_the_aggregate_score(fixture):
     )
 
 
-def test_window_only_rescore_differs_on_long_history():
+def test_window_rescore_diverges():
     """A score recomputed from the 64-entry window would NOT equal the aggregate.
 
     This is the regression the decayed aggregate fixes (P2-4): truncating the
@@ -284,7 +284,7 @@ def test_single_sample_scores_its_outcome_weight():
         assert contract_score(records, "agent:one", now_ns) == pytest.approx(weight)
 
 
-def test_decay_halves_relative_weight_after_one_half_life():
+def test_half_life_halves_weight():
     """A 30-day gap halves the earlier sample's relative weight exactly."""
     records = [
         interaction("agent:half", EPOCH_START_NS, "success", 0),

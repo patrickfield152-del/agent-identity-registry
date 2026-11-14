@@ -178,7 +178,7 @@ def test_delete_respects_tenant(repo):
     assert repo.get(COLLECTION, "a:1", tenant_id="acme", id_field=ID_FIELD) is not None
 
 
-def test_legacy_record_without_tenant_reads_as_default():
+def test_legacy_record_default_tenant():
     """A record persisted WITHOUT a tenant_id field reads under 'default' (FR-013).
 
     This is the upgrade path for v0.3.0 data. Only the file repository represents

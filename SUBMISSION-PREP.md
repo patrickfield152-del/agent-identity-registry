@@ -3,21 +3,21 @@
 Track: `security` (spec `p0-security.md`). Deadline 2026-11-14T23:59:00Z.
 No push, no remote, no tags, no X post, no submit. Local commit only.
 
-## Judge quickstart (do X → see Y), MEASURED pre-Celesto-only
+## Judge quickstart (do X → see Y), MEASURED on Celesto Box A
 
 ```
-py -3.14 -m pytest -q                 -> 224 passed, 2 skipped, 0 fail (6.84s)
-cargo check --target wasm32-unknown-unknown -> Finished dev profile, EXIT 0
-                                              (rust 1.100.0, near-sdk 5.30.2)
-pnpm install --frozen-lockfile       -> EXIT 0
-pnpm dedupe --check                  -> EXIT 0, 0 duplicates
-pip install --dry-run -e '.[api,test]' -> EXIT 0 (mcp 2.3.0, fastapi 0.162.7)
-import attestix.main (isolated mcp 2.3.0) -> "skjold MCP server loaded: 47 tools registered"
-git diff --check                     -> EXIT 0
+.venv/bin/pytest -q                           -> 225 passed, 1 skipped, 0 warnings
+cargo test --lib --test test_units            -> 15 passed, 0 failed
+cargo near check                              -> Contract checked successfully, EXIT 0
+cargo check --target wasm32-unknown-unknown   -> Finished dev profile, EXIT 0
+pnpm install --frozen-lockfile                -> EXIT 0
+pnpm dedupe --check                           -> EXIT 0, 0 duplicates
+pip install --dry-run -e '.[api,test]'        -> EXIT 0 (mcp 2.3.0, fastapi 0.162.7)
+import attestix.main                          -> "skjold MCP server loaded: 47 tools registered"
+git diff --check                              -> EXIT 0
 ```
 
-Host `cargo check` (native target) is the WRONG gate; it prints
-`compile_error "Use cargo near build"`. Use the wasm target above.
+Host `cargo check` (native target) is the wrong gate because it prints `compile_error "Use cargo near build"`. Use `cargo near check` or the wasm target above.
 
 ## Recordable demo outline (human records, human posts)
 
@@ -50,19 +50,15 @@ human yes. 201 = saved; 400 = fix `fields`, same requestId; 403 = stop, no retry
 
 ## Rules checklist
 
-- Q-003 no new repo required: dedicated branch OR `pre-hackathon` +
-  `hackathon-submission` tags + README diff link. **Not satisfied**: 5 pre-existing
-  tags, none of the required pair, no diff link. Local tags deliberately not created.
-- Q-012 local-only demo OK with public repo, reproducible README, video post.
+- Q-003 requires a dedicated branch or `pre-hackathon` and `hackathon-submission` tags plus a README diff link. Not satisfied here: 5 pre-existing tags exist with no local tags created.
+- Q-012 permits a local-only demo with a public repo, reproducible README, and video post.
 - Q-014 `LICENSE` present. Q-017 README Quickstart at line 5 with numbered steps.
-- Q-015 if a second project shares this email, this README must name it. Unresolved.
-- Origin/baseline disclosure: README "Origin & baseline" at line 187.
+- Q-015 requires naming any second project sharing this email in README. Unresolved.
+- Origin/baseline disclosure appears in README "Origin & baseline".
 
 ## Blockers (do not block submission)
 
-Celesto `Trial credit is too low to start this sandbox` → clippy/fmt/
-cargo-near-check BLOCKED-BY-CELESTO. Firecrawl daily credits BLOCKED.
-Exa MCP 402 → direct REST used. BoxLite §6 MEASURED `yQKk4IO6C4xa`.
+`cargo clippy --target wasm32-unknown-unknown -- -D warnings` holds 8 `too_many_arguments` diagnostics on 4 public `#[near]` ABI methods to preserve the on-chain ABI. All other Celesto Box A gates pass with 0 suppressions added.
 
 ## Attestation
 

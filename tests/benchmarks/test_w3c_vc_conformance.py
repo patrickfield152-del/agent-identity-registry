@@ -26,7 +26,7 @@ class TestCredentialStructure:
         assert VC_CONTEXT_V1 in issued_vc["@context"]
         assert ED25519_SUITE_CONTEXT in issued_vc["@context"]
 
-    def test_type_includes_verifiable_credential(self, issued_vc):
+    def test_vc_type_present(self, issued_vc):
         assert "VerifiableCredential" in issued_vc["type"]
 
     def test_type_includes_specific_type(self, issued_vc):
@@ -90,7 +90,7 @@ class TestProofStructure:
 class TestMutableFieldsExcludedFromSigning:
     """proof and credentialStatus must not be included in the signed payload."""
 
-    def test_revocation_does_not_break_signature(self, credential_service, sample_agent_id):
+    def test_revoked_vc_signature_valid(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
             agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
@@ -112,7 +112,7 @@ class TestMutableFieldsExcludedFromSigning:
         assert check_after["valid"] is False
         assert check_after["checks"]["not_revoked"] is False
 
-    def test_credential_status_field_present(self, credential_service, sample_agent_id):
+    def test_status_field_present(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
             agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",

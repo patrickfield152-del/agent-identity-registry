@@ -329,7 +329,7 @@ def _body_store(tmp_path) -> dict:
     return json.loads((tmp_path / "near" / "bodies.json").read_text(encoding="utf-8"))
 
 
-def test_is_repository_and_wires_the_injected_client(client, body, tmp_path):
+def test_wires_injected_client(client, body, tmp_path):
     repo = NearRepository(
         client=client,
         body=body,
@@ -345,7 +345,7 @@ def test_is_repository_and_wires_the_injected_client(client, body, tmp_path):
     assert offline.chain_enabled is False
 
 
-def test_chain_read_without_client_is_rejected(body, tmp_path):
+def test_read_without_client_fails(body, tmp_path):
     offline = NearRepository(client=None, body=body, body_dir=tmp_path / "near")
     with pytest.raises(RuntimeError):
         offline.get("identities", AGENT, id_field="agent_id")
@@ -442,7 +442,7 @@ def test_identity_round_trip(repo, client, tmp_path):
     assert repo.list("identities", id_field="agent_id")[0]["agent_id"] == AGENT
 
 
-def test_pending_identity_is_readable_before_the_callback(repo):
+def test_pending_identity_readable(repo):
     # Persist only the signed UAIT body: the create_agent callback has not
     # landed, so get_identity still returns nothing on chain.
     repo.save_document("identities", {"agents": [dict(IDENTITY_RECORD["uait"])]})
@@ -608,7 +608,7 @@ def test_update_missing_record_returns_none(repo, client):
     assert _view_methods(client) == ["get_identity"]
 
 
-def test_update_credential_and_delegation_revoke_on_chain(repo, client):
+def test_revoke_vc_and_delegation(repo, client):
     repo.create("credentials", dict(CREDENTIAL_RECORD), id_field="id")
     repo.update(
         "credentials",
@@ -637,7 +637,7 @@ def test_update_credential_and_delegation_revoke_on_chain(repo, client):
     assert revoke["args"] == {"jti": "jti-0001", "reason": "rotated"}
 
 
-def test_reputation_and_anchor_updates_stay_off_chain(repo, client):
+def test_rep_anchor_updates_off_chain(repo, client):
     repo.create("reputation", dict(REPUTATION_RECORD), id_field="interaction_id")
     repo.create("anchors", dict(ANCHOR_RECORD), id_field="artifact_digest")
     writes_before = len(client.calls)
@@ -674,7 +674,7 @@ def test_delete_local_tombstone(repo, client, tmp_path):
     assert repo.delete("identities", AGENT, id_field="agent_id") is False
 
 
-def test_body_collections_delegate_to_the_file_repository(repo, body, client):
+def test_body_collections_use_file_repo(repo, body, client):
     created = repo.create("compliance", {"id": "profile-1", "value": 1}, id_field="id")
     assert created["tenant_id"] == DEFAULT_TENANT
     assert client.calls == []
@@ -710,7 +710,7 @@ def test_document_shim_routing(repo, body):
     assert body.load_document("idempotency")["keys"][0]["id"] == "k1"
 
 
-def test_identity_projection_has_the_origin_shape(repo):
+def test_identity_projection_shape(repo):
     repo.create("identities", dict(IDENTITY_RECORD), id_field="agent_id")
 
     projection = repo.load_document("identities")

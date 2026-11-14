@@ -261,7 +261,7 @@ def _as_audit_event(ev) -> "AuditEvent":
     return AuditEvent(**{k: ev[k] for k in _AUDIT_FIELDS})
 
 
-def _recompute_chain_hash_with_tenant(
+def _rehash_with_tenant(
     event: "AuditEvent", tenant_id: str
 ) -> str:
     """Recompute ``event.chain_hash`` substituting ``tenant_id``.
@@ -366,7 +366,7 @@ def verify_chain(events) -> "VerifyChainResult":
                         break
 
             if tenant_candidate is not None:
-                shifted = _recompute_chain_hash_with_tenant(
+                shifted = _rehash_with_tenant(
                     event, tenant_candidate
                 )
                 if shifted == event.chain_hash:

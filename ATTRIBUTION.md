@@ -28,8 +28,7 @@ toolkit.
 - `contracts/registry/` new Rust registry contract.
 - `sdk/` new Node ESM package declaration.
 - `.env.example`, `scripts/check-contract.sh`, `NOTICE` and this file.
-- The origin's EAS / Base anchoring path is not used by the NEAR backend; the origin
-  files are retained until the port replaces them.
+- The origin EAS/Base anchoring path is unused by the NEAR backend. Those files remain until the port replaces them.
 
 ## Third-party components
 

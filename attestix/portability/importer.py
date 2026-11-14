@@ -503,7 +503,7 @@ class Importer:
                 if did.startswith("did:key:"):
                     self._validate_did_key(did, doc)
                 else:
-                    self._validate_did_document_structure(did, doc)
+                    self._check_did_doc(did, doc)
 
         if verify_only:
             return result
@@ -608,7 +608,7 @@ class Importer:
                 f"({resolved.get('id')!r}); refusing to import a tampered identity"
             )
 
-    def _validate_did_document_structure(self, did: str, doc: Optional[dict]) -> None:
+    def _check_did_doc(self, did: str, doc: Optional[dict]) -> None:
         """Best-effort structural check for a bundled DID document.
 
         We do not fetch the live document over HTTP during import — that would

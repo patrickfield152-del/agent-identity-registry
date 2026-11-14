@@ -1,17 +1,10 @@
 # NUMBERS
 
-One reproducible measured claim, recorded from a local `near-sandbox` run. Every value below is
-copied from captured command output; nothing is estimated.
+This file records one reproducible claim from a local `near-sandbox` run. Every value comes from captured output, and nothing is estimated.
 
 ## Claim
 
-Anchoring one credential with `anchor_credential` (operator/issuer signs, the registry writes the
-credential record) burns a measured amount of gas on a local `near-sandbox` node. The number is the
-transaction's total gas burnt — the transaction outcome plus every receipt it produces — as reported
-by the RPC and read from `TransactionResult::Full(r).total_gas_burnt` in
-`contracts/registry/tests/test_basics.rs`. It is printed in TGas (gas units / 1e12) with three
-decimals by the end-to-end registry flow. This is a cost measurement, not a contract gas-income
-claim (PV ≥ 87 removes the 30% contract gas reward).
+Anchoring one credential with `anchor_credential` burns a measured amount of gas on a local `near-sandbox` node. `TransactionResult::Full(r).total_gas_burnt` in `contracts/registry/tests/test_basics.rs` reads total gas across the transaction outcome and all receipts. The flow prints the value in TGas (gas units / 1e12) with three decimals. This is a cost measurement, not gas income, because PV ≥ 87 removes the 30% contract gas reward.
 
 **Measured: `3.195 TGas`** (identical on two fresh sandbox runs).
 
@@ -23,9 +16,7 @@ From the repository root on the Celesto box:
 cd contracts/registry && cargo test --test test_basics registry_flow_end_to_end -- --nocapture 2>&1 | grep MEASURED_ANCHOR_CREDENTIAL_TGAS
 ```
 
-The test starts its own `near-sandbox`, builds the contract with `cargo-near-build`, deploys it, and
-drives the full identity → credential → delegation → reputation → revocation flow. The marker line
-has the form:
+The test starts a `near-sandbox`, builds the contract with `cargo-near-build`, deploys it, and runs the full registry flow. The marker line uses this format:
 
 ```
 MEASURED_ANCHOR_CREDENTIAL_TGAS=<value with 3 decimals>
@@ -46,8 +37,7 @@ MEASURED_ANCHOR_CREDENTIAL_TGAS=<value with 3 decimals>
 
 ## Runs
 
-Two fresh runs of the reproduce command were executed on `cmp_512755789ee1`; both returned the same
-value.
+Two fresh runs on `cmp_512755789ee1` returned the same value.
 
 | Run | Date (UTC) | Commit | Box | `MEASURED_ANCHOR_CREDENTIAL_TGAS` | Log |
 | --- | --- | --- | --- | --- | --- |

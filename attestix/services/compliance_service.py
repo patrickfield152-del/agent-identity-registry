@@ -105,7 +105,7 @@ ANNEX_V_REQUIRED = [
 ]
 
 
-def _requires_third_party_assessment(
+def _needs_third_party(
     annex_iii_category: Optional[int],
     annex_iii_exception: Optional[str],
 ) -> tuple:
@@ -428,7 +428,7 @@ class ComplianceService:
             if profile["risk_category"] == "high" and assessment_type == "self":
                 annex_cat = profile.get("annex_iii_category")
                 annex_exc = profile.get("annex_iii_exception")
-                required, reason = _requires_third_party_assessment(
+                required, reason = _needs_third_party(
                     annex_cat, annex_exc
                 )
                 if required:
@@ -553,7 +553,7 @@ class ComplianceService:
                         None
                     )
                     if assessment and assessment.get("assessment_type") != "third_party":
-                        required, reason = _requires_third_party_assessment(
+                        required, reason = _needs_third_party(
                             profile.get("annex_iii_category"),
                             profile.get("annex_iii_exception"),
                         )
@@ -818,7 +818,7 @@ class ComplianceService:
 
             # 9-16. High-risk specific obligations (Articles 9-15)
             if profile["risk_category"] == "high":
-                high_risk_obligations = self._check_high_risk_obligations(
+                high_risk_obligations = self._high_risk_checks(
                     agent_id, profile, prov_data
                 )
                 for obligation, met in high_risk_obligations.items():
@@ -843,7 +843,7 @@ class ComplianceService:
             )
             return {"error": msg}
 
-    def _check_high_risk_obligations(
+    def _high_risk_checks(
         self, agent_id: str, profile: dict, prov_data: dict
     ) -> Dict[str, bool]:
         """Check all 12 high-risk EU AI Act obligations (Articles 9-15).

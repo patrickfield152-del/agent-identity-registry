@@ -86,12 +86,12 @@ class TestDIDNearDocument:
             "Ed25519VerificationKey2018"
         )
 
-    def test_public_key_base58_is_account_full_access_key(self, document_and_key):
+    def test_pubkey_matches_full_access_key(self, document_and_key):
         document, public_key = document_and_key
         encoded = document["verificationMethod"][0]["publicKeyBase58"]
         assert base58.b58decode(encoded) == public_key_to_bytes(public_key)
 
-    def test_authentication_and_assertion_are_owner_references(self, document_and_key):
+    def test_auth_and_assertion_owner_refs(self, document_and_key):
         document, _ = document_and_key
         assert document["authentication"] == ["#owner"]
         assert document["assertionMethod"] == ["#owner"]
@@ -166,7 +166,7 @@ class TestDIDKeyRoundtrip:
 class TestDidWebStub:
     """did:web hosting is removed; the compatibility response redirects to did:near."""
 
-    def test_stub_returns_error_and_redirect_without_hosting_url(self, did_service):
+    def test_did_web_stub_redirects(self, did_service):
         result = did_service.create_did_web("example.com")
 
         assert result["error"]
@@ -176,7 +176,7 @@ class TestDidWebStub:
         assert result["redirect"].startswith("did:near:")
         assert "hosting_url" not in result
 
-    def test_stub_with_path_is_also_redirected(self, did_service):
+    def test_did_web_stub_path_redirects(self, did_service):
         result = did_service.create_did_web("example.com", path="agents/v1")
 
         assert result["redirect"].startswith("did:near:")
