@@ -27,7 +27,6 @@ def _stderr_print(*args, **kwargs):
     _original_print(*args, **kwargs)
 builtins.print = _stderr_print
 
-import nest_asyncio
 from mcp.server.mcpserver import MCPServer
 
 from attestix.config import LOG_FILE
@@ -59,7 +58,6 @@ print(f"skjold MCP server loaded: 47 tools registered", file=sys.stderr)
 
 
 def main():
-    nest_asyncio.apply()
     asyncio.run(mcp.run_stdio_async())
 
 
