@@ -8,44 +8,54 @@ sequenceDiagram
     accTitle: skjold runtime flow
     accDescr: Six phases from agent registration through credential issue, anchor, verification, reputation scoring, and delegation revocation.
     autonumber
+    box rgba(243,232,255,0.12) Agent side
     participant M as MCP Server
     participant S as Python SDK
+    end
+    box rgba(230,247,235,0.12) NEAR on-chain
     participant C as Registry Contract
+    end
+    box rgba(255,244,214,0.12) Verifier side
     participant V as Verifier
     participant T as Storage
+    end
     rect rgba(226,238,255,0.20)
     Note over M,C: PHASE 1 — Register agent with DID
     M->>S: create_did_key
-    S->>C: create_agent with 17 mN deposit
+    S->>+C: create_agent with 17 mN deposit
     C->>C: on_agent_created funds 50 mN credit
-    C-->>S: callback landed true
+    C-->>-S: callback landed true
     Note right of C: did:near account resolves to one owner key
     end
     rect rgba(230,247,235,0.20)
     Note over M,S: PHASE 2 — Issue credential
-    M->>S: issue_credential agent_id and claims
+    M->>+S: issue_credential agent_id and claims
     S->>S: sign Ed25519Signature2020 proof
     S->>T: append_credential to store
-    S-->>M: credential URN with proof
+    S-->>-M: credential URN with proof
     Note right of S: proof covers the credential minus mutable fields
     end
     rect rgba(255,244,214,0.20)
     Note over M,C: PHASE 3 — Anchor digest
     M->>S: anchor_credential digest
-    S->>C: anchor_credential
-    C-->>S: anchor stored, 3.195 TGas
+    S->>+C: anchor_credential
+    C-->>-S: anchor stored, 3.195 TGas
     Note right of C: contract stores the digest only
     end
     rect rgba(243,232,255,0.20)
     Note over V,C: PHASE 4 — Verify attestation
+    activate V
     V->>T: load credential body
     V->>V: canonicalize and drop proof
     alt signature and window valid
         V->>C: is_credential_valid digest
+        activate C
         C-->>V: true
     else tampered or expired
         C-->>V: false
     end
+    deactivate C
+    deactivate V
     Note right of V: verify checks signature, expiry, and revocation
     end
     rect rgba(255,232,232,0.20)
@@ -54,18 +64,18 @@ sequenceDiagram
         M->>C: record_interaction
         C->>C: apply 30-day half-life decay
     end
-    M->>C: get_reputation
-    C-->>M: score and category breakdown
+    M->>+C: get_reputation
+    C-->>-M: score and category breakdown
     Note right of C: 64-entry window feeds the breakdown only
     end
     rect rgba(224,247,250,0.20)
     Note over S,C: PHASE 6 — Revoke delegation
-    S->>C: revoke_delegation jti
+    S->>+C: revoke_delegation jti
     S->>C: get_delegation jti
-    C-->>S: revoked true
+    C-->>-S: revoked true
     opt key stays installed
-        S->>C: anchor_artifact from function-call key
-        C-->>S: refusal, delegation revoked
+        S->>+C: anchor_artifact from function-call key
+        C-->>-S: refusal, delegation revoked
     end
     Note right of C: revocation stops agent-only calls, not key use
     end
