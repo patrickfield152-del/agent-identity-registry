@@ -1,4 +1,12 @@
-"""Tests for Merkle tree operations in blockchain/merkle.py."""
+"""Behavior/scenario tests for the Merkle audit-log primitive.
+
+Consolidates 12 unit tests into 7 higher-signal scenarios. Each scenario
+asserts a consumer-visible bug class, not wiring or tautologies. Adds a
+proactive perf budget and a reactive canonical-order oracle fuzz case.
+"""
+import hashlib
+import random
+import time
 
 import pytest
 
@@ -12,86 +20,56 @@ from attestix.blockchain.merkle import (
 )
 
 
-class TestHashLeaf:
-    """Tests for leaf hashing with deterministic canonical JSON input."""
-
-    def test_deterministic(self):
-        data = {"key": "value"}
-        assert hash_leaf(data) == hash_leaf(data)
-
-    def test_different_data_different_hash(self):
+class TestLeafBehavior:
+    def test_canonical_distinct_deterministic(self):
+        # sort_keys, distinctness and determinism in one behavior spec
+        assert hash_leaf({"z": 1, "a": 2}) == hash_leaf({"a": 2, "z": 1})
+        assert hash_leaf({"key": "value"}) == hash_leaf({"key": "value"})
         assert hash_leaf({"a": 1}) != hash_leaf({"a": 2})
 
-    def test_key_order_irrelevant(self):
-        """Canonical JSON uses sort_keys."""
-        assert hash_leaf({"z": 1, "a": 2}) == hash_leaf({"a": 2, "z": 1})
+    def test_domain_separation_prefixes(self):
+        data = b"\x00" * 32
+        assert (hashlib.sha256(_LEAF_PREFIX + data).digest()
+                != hashlib.sha256(_NODE_PREFIX + data + data).digest())
 
 
-class TestHashPair:
-    """Tests for internal node pair hashing with domain separation."""
-
-    def test_deterministic(self):
-        a = hash_leaf({"a": 1})
-        b = hash_leaf({"b": 2})
+class TestTreeBehavior:
+    def test_hash_pair_position_and_determinism(self):
+        a, b = hash_leaf({"a": 1}), hash_leaf({"b": 2})
         assert hash_pair(a, b) == hash_pair(a, b)
-
-    def test_position_matters(self):
-        """hash_pair(a, b) != hash_pair(b, a) because position is preserved."""
-        a = hash_leaf({"a": 1})
-        b = hash_leaf({"b": 2})
         assert hash_pair(a, b) != hash_pair(b, a)
 
-    def test_domain_separation(self):
-        """Leaf and node hashes use different prefixes."""
-        import hashlib
-        data = b"\x00" * 32
-        leaf_hash = hashlib.sha256(_LEAF_PREFIX + data).digest()
-        node_hash = hashlib.sha256(_NODE_PREFIX + data + data).digest()
-        assert leaf_hash != node_hash
-
-
-class TestBuildMerkleTree:
-    """Tests for building Merkle trees from leaf sets including odd promotion."""
-
-    def test_single_leaf(self):
-        leaf = hash_leaf({"x": 1})
-        root, levels = build_merkle_tree([leaf])
-        assert root == leaf
-        assert len(levels) == 1
-
-    def test_two_leaves(self):
-        a = hash_leaf({"a": 1})
-        b = hash_leaf({"b": 2})
+    def test_single_two_three_leaves_and_empty(self):
+        a, b, c = hash_leaf({"a": 1}), hash_leaf({"b": 2}), hash_leaf({"c": 3})
+        root, levels = build_merkle_tree([a])
+        assert root == a and len(levels) == 1
         root, levels = build_merkle_tree([a, b])
-        assert root == hash_pair(a, b)
-        assert len(levels) == 2
-
-    def test_three_leaves_odd_promotion(self):
-        a = hash_leaf({"a": 1})
-        b = hash_leaf({"b": 2})
-        c = hash_leaf({"c": 3})
-        root, levels = build_merkle_tree([a, b, c])
-        # ab = hash_pair(a, b), c promoted
-        ab = hash_pair(a, b)
-        expected_root = hash_pair(ab, c)
-        assert root == expected_root
-
-    def test_empty_raises(self):
+        assert root == hash_pair(a, b) and len(levels) == 2
+        root, _ = build_merkle_tree([a, b, c])
+        assert root == hash_pair(hash_pair(a, b), c)
         with pytest.raises(ValueError, match="empty"):
             build_merkle_tree([])
 
 
-class TestComputeMerkleRoot:
-    """Tests for the high-level compute_merkle_root convenience function."""
-
-    def test_returns_hex_and_count(self):
+class TestRootBehavior:
+    def test_hex_count_and_determinism(self):
         entries = [{"i": 1}, {"i": 2}, {"i": 3}]
-        root_hex, count = compute_merkle_root(entries)
-        assert len(root_hex) == 64  # 32 bytes = 64 hex chars
-        assert count == 3
+        hex1, count = compute_merkle_root(entries)
+        hex2, _ = compute_merkle_root(entries)
+        assert len(hex1) == 64 and count == 3 and hex1 == hex2
 
-    def test_deterministic(self):
-        entries = [{"x": i} for i in range(5)]
-        r1, _ = compute_merkle_root(entries)
-        r2, _ = compute_merkle_root(entries)
-        assert r1 == r2
+
+def test_proactive_build_budget():
+    # Proactive perf guard: a 1000-leaf tree must build well under 1 s.
+    leaves = [hash_leaf({"i": i}) for i in range(1000)]
+    t = time.perf_counter()
+    build_merkle_tree(leaves)
+    assert (time.perf_counter() - t) < 1.0
+
+
+def test_reactive_canonical_order_oracle():
+    # Reactive oracle: key order never changes a leaf hash (RFC 6962 profile).
+    rng = random.Random(1794613236)
+    for _ in range(200):
+        d = {k: rng.randrange(1000) for k in "abcdef"}
+        assert hash_leaf(d) == hash_leaf(dict(reversed(list(d.items()))))

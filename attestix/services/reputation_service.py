@@ -173,14 +173,16 @@ class ReputationService:
         try:
             data = load_reputation()
 
-            # Get all unique agent IDs
+            # Single-pass agent index: replaces one full-table scan per agent
+            # (O(A*N) rescans) with one O(N) grouping pass.
+            grouped: dict = {}
+            for interaction in data["interactions"]:
+                grouped.setdefault(interaction["agent_id"], []).append(interaction)
             agent_ids = set(i["agent_id"] for i in data["interactions"])
 
             results = []
             for aid in agent_ids:
-                agent_interactions = [
-                    i for i in data["interactions"] if i["agent_id"] == aid
-                ]
+                agent_interactions = grouped[aid]
 
                 # Filter by category
                 if category:
@@ -192,7 +194,7 @@ class ReputationService:
                     continue
 
                 score = self._compute_score(
-                    agent_interactions if category else data["interactions"],
+                    agent_interactions if category else grouped[aid],
                     aid,
                 )
 

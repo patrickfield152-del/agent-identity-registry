@@ -5,6 +5,7 @@ Handles key generation, signing, verification, and did:key creation.
 
 import base64
 import json
+import math
 import unicodedata
 import logging
 import os
@@ -324,7 +325,7 @@ def _normalize_for_signing(obj):
     elif isinstance(obj, int):
         return obj
     elif isinstance(obj, float):
-        import math
+        # math is imported at module scope (no per-float-node import)
         if not math.isfinite(obj):
             raise ValueError("JSON numbers must be finite")
         # RFC 8785 requires specific float handling.
