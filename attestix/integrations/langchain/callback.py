@@ -26,24 +26,16 @@ from attestix.services.identity_service import IdentityService
 from attestix.services.provenance_service import ProvenanceService
 
 
-def _require_langchain():
-    """Import ``langchain_core`` lazily with a friendly error message."""
-    try:
-        from langchain_core.callbacks import BaseCallbackHandler  # noqa: F401
-        from langchain_core.outputs import LLMResult  # noqa: F401
-    except ImportError as exc:  # pragma: no cover - exercised by integration test
-        raise ImportError(
-            "skjoldCallback requires langchain-core. Install it with:\n"
-            "    pip install 'skjold[langchain]'\n"
-            "or:\n"
-            "    pip install langchain-core"
-        ) from exc
-
-
-_require_langchain()
-
-from langchain_core.callbacks import BaseCallbackHandler  # noqa: E402
-from langchain_core.outputs import LLMResult  # noqa: E402
+try:
+    from langchain_core.callbacks import BaseCallbackHandler
+    from langchain_core.outputs import LLMResult
+except ImportError as exc:  # pragma: no cover - exercised by integration test
+    raise ImportError(
+        "skjoldCallback requires langchain-core. Install it with:\n"
+        "    pip install 'skjold[langchain]'\n"
+        "or:\n"
+        "    pip install langchain-core"
+    ) from exc
 
 
 class skjoldCallback(BaseCallbackHandler):

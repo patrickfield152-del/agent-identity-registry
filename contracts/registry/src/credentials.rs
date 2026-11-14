@@ -118,7 +118,7 @@ impl Contract {
             .filter(|(_, anchor)| {
                 subject_did
                     .as_ref()
-                    .map_or(true, |did| &anchor.subject_did == did)
+                    .is_none_or(|did| &anchor.subject_did == did)
             })
             .take(limit as usize)
             .map(|(cid, anchor)| (*cid, anchor.clone()))

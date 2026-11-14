@@ -42,7 +42,7 @@ def build_uait(
     include_agent: bool = False,
 ) -> dict:
     """Build the canonical UAIT body; ``include_agent`` preserves the NEAR/DID shape."""
-    uait = {
+    uait: dict[str, Any] = {
         "version": UAIT_VERSION,
         "agent_id": agent_id,
     }

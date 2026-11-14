@@ -55,9 +55,8 @@ impl Contract {
             block_height,
             block_timestamp_ns,
         };
-        let required = self.storage_cost_for(
-            Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES),
-        );
+        let required =
+            self.storage_cost_for(Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES));
         if caller == self.operator {
             // The operator pays its own storage deposit.
             self.require_deposit(required);

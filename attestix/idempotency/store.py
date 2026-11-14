@@ -159,7 +159,7 @@ class IdempotencyStore:
     def put(self, record: dict, *, tenant_id: str = DEFAULT_TENANT) -> dict:
         raise NotImplementedError
 
-    def update(self, key: str, record: dict, *, tenant_id: str = DEFAULT_TENANT) -> dict:
+    def update(self, key: str, record: dict, *, tenant_id: str = DEFAULT_TENANT) -> Optional[dict]:
         raise NotImplementedError
 
     def reclaim_expired(self, *, tenant_id: Optional[str] = None) -> int:
@@ -209,7 +209,7 @@ class RepositoryIdempotencyStore(IdempotencyStore):
             IDEMPOTENCY_COLLECTION, record, tenant_id=tenant_id, id_field=self.ID_FIELD
         )
 
-    def update(self, key: str, record: dict, *, tenant_id: str = DEFAULT_TENANT) -> dict:
+    def update(self, key: str, record: dict, *, tenant_id: str = DEFAULT_TENANT) -> Optional[dict]:
         return self._repo.update(
             IDEMPOTENCY_COLLECTION, key, record, tenant_id=tenant_id, id_field=self.ID_FIELD
         )

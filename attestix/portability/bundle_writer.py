@@ -49,7 +49,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Protocol, Tuple
 
 from attestix import __version__ as SKJOLD_VERSION
 from attestix.auth.crypto import canonicalize_json
@@ -267,7 +267,8 @@ def _row_anchor_to_cloud(oss: dict, *, workspace_id: str) -> dict:
 # tables array and the on-disk member order agree byte-for-byte across the two
 # implementations.
 
-ProjectorFn = Callable[[dict, str], dict]
+class ProjectorFn(Protocol):
+    def __call__(self, oss: dict, *, workspace_id: str) -> dict: ...
 
 
 @dataclass(frozen=True)

@@ -103,7 +103,7 @@ def issuer_did() -> Optional[str]:
 
 # UAIT defaults
 UAIT_VERSION = "0.1.0"
-DEFAULT_EXPIRY_DAYS = int(_get_env("DEFAULT_EXPIRY_DAYS", default="365"))
+DEFAULT_EXPIRY_DAYS = int(_get_env("DEFAULT_EXPIRY_DAYS", default="365") or "365")
 
 
 # --- Safe JSON storage helpers ---

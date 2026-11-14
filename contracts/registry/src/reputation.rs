@@ -216,10 +216,10 @@ impl Contract {
     pub fn get_reputation(&self, agent: AccountId) -> ReputationView {
         let now = env::block_timestamp();
         let stored = self.reputation.get(&agent);
-        let last_interaction_ns = stored.map(|aggregate| aggregate.last_update_ns).unwrap_or(0);
-        let mut aggregate = stored
-            .cloned()
-            .unwrap_or_else(|| empty_aggregate(now));
+        let last_interaction_ns = stored
+            .map(|aggregate| aggregate.last_update_ns)
+            .unwrap_or(0);
+        let mut aggregate = stored.cloned().unwrap_or_else(|| empty_aggregate(now));
         decay_to(&mut aggregate, now);
         let window = self
             .interactions
@@ -300,15 +300,17 @@ impl Contract {
         });
         candidates
             .into_iter()
-            .map(|(trust_score, agent, total_interactions, last_interaction_ns, window)| {
-                ReputationView {
-                    agent,
-                    trust_score,
-                    total_interactions,
-                    category_breakdown: category_breakdown(window, now),
-                    last_interaction_ns,
-                }
-            })
+            .map(
+                |(trust_score, agent, total_interactions, last_interaction_ns, window)| {
+                    ReputationView {
+                        agent,
+                        trust_score,
+                        total_interactions,
+                        category_breakdown: category_breakdown(window, now),
+                        last_interaction_ns,
+                    }
+                },
+            )
             .collect()
     }
 }
@@ -368,7 +370,10 @@ mod tests {
         }
         let now_ns = history.last().expect("non-empty history").0;
         let error = (score(&aggregate) - full_history_score(&history, now_ns)).abs();
-        assert!(error <= 1e-12, "aggregate parity error {error} exceeds 1e-12");
+        assert!(
+            error <= 1e-12,
+            "aggregate parity error {error} exceeds 1e-12"
+        );
         assert_eq!(aggregate.count, 1000);
     }
 

@@ -5,9 +5,7 @@
 //! own storage growth, so the registry never subsidises a record from its balance.
 
 use near_sdk::store::{IterableMap, LookupMap, LookupSet};
-use near_sdk::{
-    env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PublicKey,
-};
+use near_sdk::{env, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise, PublicKey};
 
 // `event_json` emits a `Event_event_standard` constant in this module.
 #[allow(non_upper_case_globals)]
@@ -21,11 +19,11 @@ pub mod identity;
 pub mod reputation;
 pub mod tee;
 
+pub use crate::types::Digest32;
 use crate::types::{
     AgentRecord, AnchorRecord, CredentialAnchor, DelegationRecord, Interaction,
     ReputationAggregate, TeeBinding,
 };
-pub use crate::types::Digest32;
 
 /// Gas reserved for a cross-contract callback.
 pub const GAS_CALLBACK: Gas = Gas::from_tgas(10);
@@ -100,8 +98,7 @@ impl Contract {
 impl Contract {
     /// Borsh-serialized length of a record, which is what the runtime actually stores.
     pub(crate) fn borsh_len<T: near_sdk::borsh::BorshSerialize>(v: &T) -> u64 {
-        near_sdk::borsh::object_length(v)
-            .expect("contract records always borsh-serialize") as u64
+        near_sdk::borsh::object_length(v).expect("contract records always borsh-serialize") as u64
     }
 
     /// Cost of `bytes` of contract storage at the runtime's current byte price.

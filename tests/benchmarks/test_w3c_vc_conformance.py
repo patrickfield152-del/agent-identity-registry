@@ -16,7 +16,7 @@ class TestCredentialStructure:
     @pytest.fixture()
     def issued_vc(self, credential_service, sample_agent_id):
         return credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="skjold Conformance",
             claims={"role": "tester", "level": "gold"},
@@ -60,7 +60,7 @@ class TestProofStructure:
     @pytest.fixture()
     def proof(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="Proof Test",
             claims={"test": True},
@@ -92,7 +92,7 @@ class TestMutableFieldsExcludedFromSigning:
 
     def test_revocation_does_not_break_signature(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="Revocation Test",
             claims={"test": True},
@@ -114,7 +114,7 @@ class TestMutableFieldsExcludedFromSigning:
 
     def test_credential_status_field_present(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="Status Test",
             claims={"test": True},
@@ -130,7 +130,7 @@ class TestVerifiablePresentation:
     @pytest.fixture()
     def vp_setup(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="VP Test",
             claims={"test": True},
@@ -180,7 +180,7 @@ class TestVerifiablePresentation:
 
     def test_vp_without_challenge(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="No Challenge",
             claims={"test": True},
@@ -199,7 +199,7 @@ class TestExternalCredentialVerification:
 
     def test_verify_external_credential(self, credential_service, sample_agent_id):
         vc = credential_service.issue_credential(
-            subject_id=sample_agent_id,
+            agent_id=sample_agent_id,
             credential_type="AgentIdentityCredential",
             issuer_name="External Test",
             claims={"role": "verifier"},

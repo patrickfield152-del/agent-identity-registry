@@ -37,8 +37,8 @@ These are installed from their registries; none is vendored here.
 
 | Component | Version | Used by | License |
 |---|---|---|---|
-| near-sdk | 5.30.1 | registry contract | MIT OR Apache-2.0 |
-| near-sandbox | 0.4.0 | contract dev-dependencies | MIT OR Apache-2.0 |
+| near-sdk | 5.30.2 | registry contract | MIT OR Apache-2.0 |
+| near-sandbox | 0.4.1 | contract dev-dependencies | MIT OR Apache-2.0 |
 | near-api (Rust) | 0.8.7 | contract dev-dependencies | MIT OR Apache-2.0 |
 | cargo-near-build | 0.11.5 | contract dev-dependencies | MIT OR Apache-2.0 |
 | near-api-js | 7.5.3 | sdk runtime dependency | MIT AND Apache-2.0 |

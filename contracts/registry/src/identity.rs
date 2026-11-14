@@ -4,9 +4,7 @@
 //! did:near document has exactly one `#owner` verification method. The on-chain
 //! `AgentRecord` (not the key list) is the authoritative revocation cut-off.
 
-use near_sdk::{
-    env, near, require, AccountId, NearToken, Promise, PublicKey,
-};
+use near_sdk::{env, near, require, AccountId, NearToken, Promise, PublicKey};
 
 use crate::events::Event;
 use crate::types::{AgentRecord, AgentRevoked, Digest32, IdentityData};
@@ -30,34 +28,37 @@ fn validate_agent_fields(prefix: &str, display_name: &str, capabilities: &[Strin
     require!(capabilities.len() <= 32, "too many capabilities");
 }
 
+struct AgentMeta {
+    display_name: String,
+    description: String,
+    source_protocol: String,
+    issuer_name: String,
+    issuer_did: String,
+    capabilities: Vec<String>,
+    expires_at_ns: u64,
+}
+
 impl Contract {
-    #[allow(clippy::too_many_arguments)]
     fn build_agent_record(
         &self,
         agent: AccountId,
         full_access_key: PublicKey,
         uait_digest: Digest32,
-        display_name: String,
-        description: String,
-        source_protocol: String,
-        issuer_name: String,
-        issuer_did: String,
-        capabilities: Vec<String>,
-        expires_at_ns: u64,
+        meta: AgentMeta,
     ) -> AgentRecord {
         AgentRecord {
             agent,
             operator: self.operator.clone(),
             full_access_key,
             uait_digest,
-            display_name,
-            description,
-            source_protocol,
-            issuer_name,
-            issuer_did,
-            capabilities,
+            display_name: meta.display_name,
+            description: meta.description,
+            source_protocol: meta.source_protocol,
+            issuer_name: meta.issuer_name,
+            issuer_did: meta.issuer_did,
+            capabilities: meta.capabilities,
             created_at_ns: env::block_timestamp(),
-            expires_at_ns,
+            expires_at_ns: meta.expires_at_ns,
             revoked: false,
             revoked_at_ns: None,
             revocation_reason: None,
@@ -123,18 +124,19 @@ impl Contract {
             sub.clone(),
             full_access_key.clone(),
             uait_digest,
-            display_name,
-            description,
-            source_protocol,
-            issuer_name,
-            issuer_did,
-            capabilities,
-            expires_at_ns,
+            AgentMeta {
+                display_name,
+                description,
+                source_protocol,
+                issuer_name,
+                issuer_did,
+                capabilities,
+                expires_at_ns,
+            },
         );
 
-        let record_cost = self.storage_cost_for(
-            Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES),
-        );
+        let record_cost =
+            self.storage_cost_for(Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES));
         let required = NearToken::from_millinear(17)
             .saturating_add(record_cost)
             .saturating_add(self.agent_credit_cost(&sub));
@@ -239,13 +241,15 @@ impl Contract {
             agent.clone(),
             full_access_key,
             uait_digest,
-            display_name,
-            description,
-            source_protocol,
-            issuer_name,
-            issuer_did,
-            capabilities,
-            expires_at_ns,
+            AgentMeta {
+                display_name,
+                description,
+                source_protocol,
+                issuer_name,
+                issuer_did,
+                capabilities,
+                expires_at_ns,
+            },
         );
         let required = self
             .storage_cost_for(Self::borsh_len(&record).saturating_add(RECORD_OVERHEAD_BYTES))
@@ -265,11 +269,7 @@ impl Contract {
         );
         require!(reason.len() <= 128, "reason > 128 B");
         self.require_storage_deposit(140);
-        let mut rec = self
-            .agents
-            .get(&agent)
-            .cloned()
-            .expect("unknown agent");
+        let mut rec = self.agents.get(&agent).cloned().expect("unknown agent");
         require!(!rec.revoked, "already revoked");
         let revoked_at_ns = env::block_timestamp();
         rec.revoked = true;
@@ -322,12 +322,12 @@ impl Contract {
             .filter(|rec| {
                 source_protocol
                     .as_ref()
-                    .map_or(true, |protocol| &rec.source_protocol == protocol)
+                    .is_none_or(|protocol| &rec.source_protocol == protocol)
             })
             .filter(|rec| {
                 wanted_name
                     .as_ref()
-                    .map_or(true, |needle| rec.display_name.to_lowercase().contains(needle))
+                    .is_none_or(|needle| rec.display_name.to_lowercase().contains(needle))
             })
             .take(limit as usize)
             .cloned()

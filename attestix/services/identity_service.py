@@ -10,7 +10,7 @@ import hashlib
 import uuid
 import re
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from attestix.auth.crypto import (
     did_key_fragment,
@@ -553,7 +553,7 @@ class IdentityService:
             ("idempotency", "keys"): "idempotency_responses",
             ("anchors", "anchors"): "local_anchor_references",
         }
-        purged = {
+        purged: Dict[str, Any] = {
             "agent_id": agent_id,
             "purged_at": datetime.now(timezone.utc).isoformat(),
             "counts": {},

@@ -10,7 +10,7 @@ import logging
 import uuid
 import warnings
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -326,7 +326,7 @@ class CredentialService:
             vp_id = f"urn:uuid:{uuid.uuid4()}"
             now = datetime.now(timezone.utc)
 
-            vp = {
+            vp: Dict[str, Any] = {
                 "@context": VC_CONTEXT,
                 "id": vp_id,
                 "type": ["VerifiablePresentation"],
@@ -404,7 +404,7 @@ class CredentialService:
         checks binding but does not implement a single-use nonce store.
         """
         try:
-            checks = {}
+            checks: Dict[str, Any] = {}
 
             # Check VP structure
             vp_types = presentation.get("type", [])

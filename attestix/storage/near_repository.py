@@ -45,7 +45,11 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Protocol, Tuple
+
+if TYPE_CHECKING:
+    import httpx
+    from attestix.signing.near_signer import NodeTxSigner
 
 from attestix.storage.repository import DEFAULT_TENANT, Repository
 
@@ -146,7 +150,7 @@ class HttpNearClient:
         self.registry_id = registry_id
         self.rpc_url = rpc_url or default_rpc_url()
         self.timeout = timeout
-        self._http = None
+        self._http: Optional[httpx.Client] = None
 
     @property
     def can_sign(self) -> bool:
@@ -247,7 +251,7 @@ class NodeNearClient:
         self.timeout = timeout
         self.script_path = Path(script_path) if script_path else default_tx_script()
         self._viewer = HttpNearClient(registry_id, self.rpc_url)
-        self._signer: Optional[object] = None
+        self._signer: Optional[NodeTxSigner] = None
 
     def view(self, method: str, args: Optional[dict] = None) -> Any:
         return self._viewer.view(method, args)
@@ -414,7 +418,7 @@ def _artifact_wire(artifact_type: str) -> str:
     )
 
 
-def _artifact_origin(artifact_type: str) -> str:
+def _artifact_origin(artifact_type: Any) -> str:
     for origin, wire in ARTIFACT_TYPE_WIRE.items():
         if artifact_type == wire:
             return origin
@@ -512,7 +516,7 @@ class NearRepository(Repository):
         return client
 
 
-    def _body_repository(self) -> Repository:
+    def _body_repository(self) -> Any:
         if self._body is None:
             from attestix.storage.file_repository import FileRepository
 
@@ -919,7 +923,8 @@ class NearRepository(Repository):
             deposit_yocto=CREATE_AGENT_DEPOSIT_YOCTO,
             gas_tgas=DEFAULT_GAS_TGAS,
         )
-        body = record.get("uait") if isinstance(record.get("uait"), dict) else record
+        raw_uait = record.get("uait")
+        body: dict = raw_uait if isinstance(raw_uait, dict) else record
         stored = self._store_body("identities", agent, body, keep_history=False)
         stored.setdefault("agent_id", agent)
         stored["tenant_id"] = DEFAULT_TENANT
@@ -1301,11 +1306,11 @@ class NearRepository(Repository):
             cid = _digest_b64(anchor.get("cid") or anchor.get("artifact_digest"))
             if cid in tombstones:
                 continue
-            body = by_cid.get(cid)
-            if body is not None and body.get("id") in tombstones:
+            cred_body = by_cid.get(cid)
+            if cred_body is not None and cred_body.get("id") in tombstones:
                 continue
             seen.add(cid)
-            document = self._credential_document(anchor, body, cid)
+            document = self._credential_document(anchor, cred_body, cid)
             if filters.get("valid_only") and document.get("credentialStatus", {}).get("revoked"):
                 continue
             results.append(document)
@@ -1405,8 +1410,8 @@ class NearRepository(Repository):
                 records = list(pool.map(self._get_anchor_view, [d for d, _ in pending]))
         else:
             records = [self._get_anchor_view(digest) for digest, _ in pending]
-        for (digest, body), record in zip(pending, records):
-            document = self._anchor_document(record, body, digest)
+        for (digest, body), anchor_rec in zip(pending, records):
+            document = self._anchor_document(anchor_rec, body, digest)
             if not self._matches_filters(document, filters):
                 continue
             results.append(document)

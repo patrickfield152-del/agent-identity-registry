@@ -4,7 +4,7 @@ Handles fetching, parsing, and generating Google A2A Agent Cards
 (the /.well-known/agent.json standard).
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from attestix.audit import AuditEventEmitter, resolve_emitter, safe_emit
 from attestix.auth.ssrf import fetch_json_pinned
@@ -52,8 +52,8 @@ class AgentCardService:
             fetch_err, card = fetch_json_pinned(
                 agent_json_url, max_bytes=AGENT_CARD_MAX_BYTES, timeout=10.0,
             )
-            if fetch_err:
-                return {"error": fetch_err, "source_url": agent_json_url}
+            if fetch_err or card is None:
+                return {"error": fetch_err or "Empty agent card", "source_url": agent_json_url}
 
             return {
                 "source_url": agent_json_url,
@@ -135,7 +135,7 @@ class AgentCardService:
         if skills is None:
             skills = []
 
-        card = {
+        card: Dict[str, Any] = {
             "id": f"skjold-{hashlib.sha256(url.encode()).hexdigest()[:16]}",
             "name": name,
             "description": description,

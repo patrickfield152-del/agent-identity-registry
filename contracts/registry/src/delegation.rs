@@ -70,7 +70,9 @@ impl Contract {
         self.require_storage_deposit(growth);
 
         let _ = self.delegations.insert(jti.clone(), record);
-        let _ = self.delegation_by_key.insert(fck_pubkey.clone(), jti.clone());
+        let _ = self
+            .delegation_by_key
+            .insert(fck_pubkey.clone(), jti.clone());
         Event::DelegationRecorded(vec![DelegData {
             jti,
             agent,
@@ -92,11 +94,7 @@ impl Contract {
         );
         require!(reason.len() <= 128, "reason > 128 B");
         self.require_storage_deposit(140);
-        let mut record = self
-            .delegations
-            .get(&jti)
-            .cloned()
-            .expect("unknown jti");
+        let mut record = self.delegations.get(&jti).cloned().expect("unknown jti");
         require!(!record.revoked, "already revoked");
         let revoked_at_ns = env::block_timestamp();
         record.revoked = true;
@@ -115,18 +113,10 @@ impl Contract {
         self.delegations.get(&jti).cloned()
     }
 
-    pub fn list_delegations(
-        &self,
-        agent: Option<AccountId>,
-        limit: u32,
-    ) -> Vec<DelegationRecord> {
+    pub fn list_delegations(&self, agent: Option<AccountId>, limit: u32) -> Vec<DelegationRecord> {
         self.delegations
             .iter()
-            .filter(|(_, record)| {
-                agent
-                    .as_ref()
-                    .map_or(true, |wanted| &record.agent == wanted)
-            })
+            .filter(|(_, record)| agent.as_ref().is_none_or(|wanted| &record.agent == wanted))
             .take(limit as usize)
             .map(|(_, record)| record.clone())
             .collect()
@@ -148,18 +138,14 @@ impl Contract {
             .delegation_by_key
             .get(&pk)
             .expect("signer key is not delegated");
-        let delegation = self
-            .delegations
-            .get(jti)
-            .expect("dangling fck index");
+        let delegation = self.delegations.get(jti).expect("dangling fck index");
         require!(
             delegation.agent == rec.agent,
             "delegation belongs to another agent"
         );
         require!(!delegation.revoked, "delegation revoked");
         require!(
-            delegation.expires_at_ns == 0
-                || env::block_timestamp() < delegation.expires_at_ns,
+            delegation.expires_at_ns == 0 || env::block_timestamp() < delegation.expires_at_ns,
             "delegation expired"
         );
     }

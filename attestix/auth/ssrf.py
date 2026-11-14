@@ -73,7 +73,7 @@ def validate_url_host(hostname: str) -> Optional[str]:
     try:
         resolved = socket.getaddrinfo(clean, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         for family, _, _, _, addr in resolved:
-            ip_str = addr[0]
+            ip_str = str(addr[0])
             if _is_private_ip(ip_str):
                 return f"Blocked: '{hostname}' resolves to private IP {ip_str}"
     except socket.gaierror:
@@ -124,7 +124,7 @@ def validate_and_pin_url(url: str) -> Tuple[Optional[str], List[str]]:
     try:
         resolved = socket.getaddrinfo(clean, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         for family, _, _, _, addr in resolved:
-            ip_str = addr[0]
+            ip_str = str(addr[0])
             if _is_private_ip(ip_str):
                 return (f"Blocked: '{hostname}' resolves to private IP {ip_str}", [])
             if ip_str not in safe_ips:

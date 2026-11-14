@@ -32,7 +32,7 @@ from attestix.storage.repository import DEFAULT_TENANT, Repository
 #: legacy file layout: the ``config`` attribute holding the file path, the
 #: top-level JSON key holding the record list, and the default document written
 #: when the file does not yet exist (mirrors ``config.load_*`` defaults exactly).
-_FILE_REPOSITORIES = WeakSet()
+_FILE_REPOSITORIES: WeakSet["FileRepository"] = WeakSet()
 
 
 _COLLECTIONS = {

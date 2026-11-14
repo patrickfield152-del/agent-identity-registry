@@ -33,7 +33,6 @@ mod common;
 
 use common::{create_account, deploy_registry, TestResult};
 
-
 const NETWORK_NAME: &str = "sandbox";
 const IDENTITY_POLL_ATTEMPTS: usize = 40;
 const IDENTITY_POLL_INTERVAL: Duration = Duration::from_millis(250);
@@ -89,7 +88,6 @@ fn growth_deposit() -> NearToken {
 fn revoke_deposit() -> NearToken {
     NearToken::from_millinear(2)
 }
-
 
 /// Send a state-changing contract call and require the transaction to succeed.
 async fn call_ok(
@@ -346,9 +344,7 @@ async fn registry_flow_end_to_end() -> TestResult {
         .with_signer(agent_signer.clone())
         .send_to(&network)
         .await
-        .map_err(|error| {
-            std::io::Error::other(format!("adding function-call key: {error}"))
-        })?
+        .map_err(|error| std::io::Error::other(format!("adding function-call key: {error}")))?
         .assert_success();
 
     // A live FCK anchors with ZERO attached deposit; the record cost is debited
@@ -452,7 +448,6 @@ async fn registry_flow_end_to_end() -> TestResult {
         "a deposited FullAccess call must not touch credit"
     );
 
-
     // --- record_interaction + get_reputation ------------------------------
     call_ok(
         &contract,
@@ -508,7 +503,10 @@ async fn registry_flow_end_to_end() -> TestResult {
         NearToken::from_yoctonear(0),
     )
     .await?;
-    assert!(credit_refused, "oversized anchor must fail on insufficient credit");
+    assert!(
+        credit_refused,
+        "oversized anchor must fail on insufficient credit"
+    );
     let credit_after_refusal: u128 = view::<String>(
         &contract,
         &network,
