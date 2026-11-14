@@ -28,7 +28,7 @@ def _stderr_print(*args, **kwargs):
 builtins.print = _stderr_print
 
 import nest_asyncio
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from attestix.config import LOG_FILE
 from attestix.errors import setup_logging
@@ -37,7 +37,7 @@ from attestix.errors import setup_logging
 setup_logging(log_file=str(LOG_FILE))
 
 # Create MCP server
-mcp = FastMCP("skjold")
+mcp = MCPServer("skjold")
 
 # Register tool modules
 from attestix.tools import (

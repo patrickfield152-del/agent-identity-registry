@@ -45,56 +45,56 @@ dependencies = [
     # Runtime dependencies are pinned with both lower and upper bounds to
     # prevent silent breakage from major-version drift (mcp 2.x, PyJWT 3.x,
     # cryptography 51.x, etc.) on fresh installs.
-    # mcp >=1.30.0 closes the transport, OAuth and schema-validation advisories.
-    "mcp[cli]>=1.30.0,<2.0.0",
+    # mcp >=2.3.0 adopts the 2.x transport; FastMCP import verified native.
+    "mcp[cli]>=2.3.0,<3.0.0",
     # cryptography >=50.0.0 closes the 44.x-49.x advisory flagged by Dependabot.
     "cryptography>=50.0.2,<51.0.0",
     # PyJWT >=2.15.0 closes CVE-2026-32597 (crit header validation bypass),
     # which affects the JWT / Verifiable Credential / UCAN verification paths.
-    "PyJWT[crypto]>=2.15.0,<3.0.0",
-    "anyio>=4.14.2,<5.0.0",
+    "PyJWT[crypto]>=2.15.1,<3.0.0",
+    "anyio>=4.16.0,<5.0.0",
     "base58>=2.1.1,<3.0.0",
     "httpx>=0.28.1,<0.30.0",
-    "python-dotenv>=1.1.0,<2.0.0",
+    "python-dotenv>=1.2.4,<2.0.0",
     "nest-asyncio>=1.6.0,<2.0.0",
     "python-json-logger>=4.2.0,<5.0.0",
     "filelock>=4.2.10,<5.0.0",
     # Use the current CA bundle security floor for transitive HTTP clients.
-    "certifi>=2026.10.19",
-    "click>=8.1.0,<9.0.0",
+    "certifi>=2026.10.23",
+    "click>=8.5.1,<9.0.0",
     # Transitive pin: mcp pulls python-multipart. Versions <0.0.26 are
     # vulnerable to CVE-2026-40347, exposed through both the MCP stdio server
     # and the FastAPI REST API's multipart uploads.
-    "python-multipart>=0.0.26,<0.1.0",
+    "python-multipart>=0.0.33,<0.1.0",
 ]
 
 [project.optional-dependencies]
 # The REST API depends on FastAPI + uvicorn. Kept as an opt-in extra (not a
 # base runtime dep) so callers who only need the MCP server or Python services
 # do not get FastAPI dragged in.
-api = ["fastapi>=0.130,<0.170", "uvicorn[standard]>=0.32,<0.60", "starlette>=1.3.1,<2.0"]
+api = ["fastapi>=0.162.7,<0.170", "uvicorn[standard]>=0.54.0,<0.60", "starlette>=1.10.0,<2.0"]
 # Framework integration extras. The callback / adapter classes live under
 # `attestix.integrations.<framework>` and import their SDK lazily so
 # `import attestix.integrations` itself is always cheap.
 langchain = ["langchain-core>=1.4.6,<2.0"]
 crewai = ["crewai>=0.95,<0.200"]
 openai-agents = ["openai-agents>=0.0.20"]
-test = ["pytest>=8.0", "pytest-asyncio>=0.24", "respx>=0.22", "pytest-cov>=5.0"]
-lint = ["ruff>=0.6.0", "mypy>=1.11"]
-security = ["pip-audit>=2.7", "bandit>=1.7"]
+test = ["pytest>=9.2.0", "pytest-asyncio>=1.5.0", "respx>=0.23.1", "pytest-cov>=7.1.0"]
+lint = ["ruff>=0.17.5", "mypy>=2.4.1"]
+security = ["pip-audit>=2.10.1", "bandit>=1.9.4"]
 # CycloneDX SBOM generation (runtime + transitive dependencies).
-sbom = ["cyclonedx-bom>=5.0.0,<6.0.0"]
+sbom = ["cyclonedx-bom>=8.0.1,<9.0.0"]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "respx>=0.22",
-    "pytest-cov>=5.0",
-    "ruff>=0.6.0",
-    "mypy>=1.11",
-    "pip-audit>=2.7",
-    "bandit>=1.7",
-    "cyclonedx-bom>=5.0.0,<6.0.0",
-    "build>=1.2",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "respx>=0.23.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.5",
+    "mypy>=2.4.1",
+    "pip-audit>=2.10.1",
+    "bandit>=1.9.4",
+    "cyclonedx-bom>=8.0.1,<9.0.0",
+    "build>=1.6.1",
     "setuptools>=84.2.1,<85",
     "wheel>=0.48.0,<0.49",
 ]

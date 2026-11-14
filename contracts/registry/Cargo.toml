@@ -2,7 +2,7 @@
 name = "skjold-registry"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.100"
 description = "skjold registry: agent identity, credential, delegation, reputation, TEE and artifact anchors on NEAR"
 license = "Apache-2.0"
 publish = false
@@ -11,10 +11,10 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "5.30.1"
+near-sdk = "5.30.2"
 
 [dev-dependencies]
-near-sdk = { version = "5.30.1", features = ["unit-testing"] }
+near-sdk = { version = "5.30.2", features = ["unit-testing"] }
 # W3-F2 sandbox suite (p0-security.md step 13). `near-sandbox` is the node
 # harness, `near-api` the client and `cargo-near-build` the wasm builder; the
 # test itself is Linux-gated because near-sandbox-rs ships Linux x86_64 and
