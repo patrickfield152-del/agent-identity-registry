@@ -244,7 +244,7 @@ skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED
 ## Baseline, diff and dependencies
 
 Baseline: tag `pre-hackathon` marks the imported tree at `28b5b21`. The upstream project is attestix.
-Submission: tag `hackathon-submission` marks the state at `78a7368`.
+Submission: tag `hackathon-submission` marks the submitted state; `git rev-parse --short hackathon-submission` prints it.
 Diff: `git diff pre-hackathon..hackathon-submission`. After publishing, https://github.com/<owner>/<repo>/compare/pre-hackathon...hackathon-submission.
 Libraries, templates and AI-generated code are listed in `ATTRIBUTION.md` and `NOTICE`.
 
