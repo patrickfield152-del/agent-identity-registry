@@ -4,7 +4,6 @@
 Each agent is a sub-account such as `agent1.registry.skjold.testnet` and holds one FullAccess key. `did:near:agent1.registry.skjold.testnet` resolves to one `#owner` verification method. The registry stores the agent record and the canonical UAIT digest. It also stores credential anchors, delegation records, the reputation aggregate, TEE bindings, and artifact anchors. Credentials are signed off-chain. The registry anchors only the digest. A delegation is a function-call access key on the agent account with `contract_id = registry.skjold.testnet` and `method_names = ["anchor_artifact"]`. The registry indexes that key to the UCAN `jti`. Revocation stops future calls, even if the key remains installed.
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"fontSize":"14px"}}}%%
 sequenceDiagram
     accTitle: skjold runtime flow
     accDescr: Six phases from agent registration through credential issue, anchor, verification, reputation scoring, and delegation revocation.
