@@ -405,7 +405,7 @@ def test_non_default_tenant_is_rejected(repo, operation):
         call(repo)
 
 
-def test_identity_round_trip_returns_pending_then_merges_the_body(repo, client, tmp_path):
+def test_identity_round_trip(repo, client, tmp_path):
     created = repo.create(
         "identities", dict(IDENTITY_RECORD), id_field="agent_id"
     )
@@ -554,7 +554,7 @@ def test_anchor_round_trip(repo, client):
     assert document["chain_status"] == "anchored"
 
 
-def test_update_appends_body_and_revokes_without_mutating_the_signed_body(
+def test_update_preserves_signed_body(
     repo, client, tmp_path
 ):
     repo.create("identities", dict(IDENTITY_RECORD), id_field="agent_id")
@@ -659,7 +659,7 @@ def test_reputation_and_anchor_updates_stay_off_chain(repo, client):
     assert _call_methods(client) == ["record_interaction", "anchor_artifact"]
 
 
-def test_delete_is_a_local_tombstone_and_issues_no_contract_call(repo, client, tmp_path):
+def test_delete_local_tombstone(repo, client, tmp_path):
     repo.create("identities", dict(IDENTITY_RECORD), id_field="agent_id")
     writes_before = len(client.calls)
 
@@ -692,7 +692,7 @@ def test_body_collections_delegate_to_the_file_repository(repo, body, client):
     assert body.list("compliance", id_field="id") == []
 
 
-def test_document_shims_route_body_collections_to_the_file_repository(repo, body):
+def test_document_shim_routing(repo, body):
     document = {"profiles": [{"id": "p1"}], "assessments": [], "declarations": []}
     repo.save_document("compliance", document)
     assert body.load_document("compliance") == document
@@ -746,7 +746,7 @@ def test_credential_and_delegation_projections(repo):
     assert delegations["delegations"][0]["chain_status"] == "active"
 
 
-def test_append_to_document_identity_calls_the_contract_and_stores_the_body(
+def test_append_identity(
     repo, client, tmp_path
 ):
     record = {key: value for key, value in IDENTITY_RECORD.items() if key != "uait"}
@@ -762,7 +762,7 @@ def test_append_to_document_identity_calls_the_contract_and_stores_the_body(
     assert body["display_name"] == "Agent One"
 
 
-def test_append_to_document_credential_anchors_and_stores_the_vc(repo, client, tmp_path):
+def test_append_credential(repo, client, tmp_path):
     appended = repo.append_to_document("credentials", dict(CREDENTIAL_VC))
 
     payload = {key: value for key, value in CREDENTIAL_VC.items() if key != "proof"}
@@ -779,7 +779,7 @@ def test_append_to_document_credential_anchors_and_stores_the_vc(repo, client, t
 
 
 
-def test_append_to_document_delegation_records_and_stores_the_body(
+def test_append_delegation(
     repo, client, tmp_path
 ):
     appended = repo.append_to_document("delegations", dict(DELEGATION_RECORD))
@@ -793,7 +793,7 @@ def test_append_to_document_delegation_records_and_stores_the_body(
     assert stored["parent_jti"] is None
 
 
-def test_save_document_identity_projection_creates_new_chain_records(repo, client):
+def test_save_identity_projection(repo, client):
     repo.save_document("identities", {"agents": [dict(IDENTITY_RECORD)]})
     assert _call_methods(client) == ["create_agent"]
 
@@ -813,7 +813,7 @@ def test_no_network_socket_access(repo, monkeypatch):
     repo.get("identities", AGENT, id_field="agent_id")
     repo.list("identities", id_field="agent_id")
 
-def test_list_anchors_filters_before_chain_read_and_honors_limit(repo, client):
+def test_list_anchors_limit(repo, client):
     for index in range(4):
         record = dict(ANCHOR_RECORD)
         record["artifact_digest"] = base64.b64encode(bytes([index + 1]) * 32).decode()
