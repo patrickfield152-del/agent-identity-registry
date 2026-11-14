@@ -236,4 +236,4 @@ The port replaces EAS/Base anchoring with registry state and NEP-297 events. Set
 
 ## License
 Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
-Track: `security`. Development ends 2026-11-14T23:59:00Z (UTC).
+Tracks: `security`, `agents`. Development ends 2026-11-14T23:59:00Z (UTC).
