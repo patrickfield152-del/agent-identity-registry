@@ -241,6 +241,13 @@ skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED
 - `contracts/registry/tests/test_demo.rs` runs `node sdk/src/demo.js` against near-sandbox and checks all 9 steps, callback, VC validity, credit debit, revocation refusal, and `#owner` resolution.
 - No testnet or mainnet deployment and no third-party security audit. The Python live chain-write path is unverified against a deployed registry (wire mismatch, see Limits).
 
+## Baseline, diff and dependencies
+
+Baseline: tag `pre-hackathon` marks the imported tree at `28b5b21`. The upstream project is attestix.
+Submission: tag `hackathon-submission` marks the state at `78a7368`.
+Diff: `git diff pre-hackathon..hackathon-submission`. After publishing, https://github.com/<owner>/<repo>/compare/pre-hackathon...hackathon-submission.
+Libraries, templates and AI-generated code are listed in `ATTRIBUTION.md` and `NOTICE`.
+
 ## License
 Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
 Tracks: `security`, `agents`.
