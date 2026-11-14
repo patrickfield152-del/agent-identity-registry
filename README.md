@@ -206,7 +206,7 @@ The MCP server keeps **47 tools across 9 modules**. The split is Identity 8, Age
 - **Credential cid is a project profile.** `skjold-vc-digest/v1` is Base64(SHA-256 of the canonical credential minus `proof` and `credentialStatus`). It differs from the stock did:near ProofType cid.
 - **Storage credit is finite.** The 50 mN grant has no top-up method. Exhausted credit blocks zero-deposit FCK anchors. Deposited FullAccess calls still work.
 - **Contract JSON wire is raw for digests.** Contract `Digest32` is a 32-element JSON array (`[u8; 32]`). The Node demo uses `toWireDigest`. The Python adapter sends Base64 strings and remains unverified against a live registry.
-- **Sandbox tests are Linux-only.** `tests/test_basics.rs` and `tests/test_demo.rs` use `#![cfg(target_os = "linux")]`. near-sandbox 0.4.1 ships Linux x86_64 and macOS ARM64 binaries. These tests run on Linux only.
+- **Sandbox tests are Linux-only.** `contracts/registry/tests/test_basics.rs` and `contracts/registry/tests/test_demo.rs` use `#![cfg(target_os = "linux")]`. near-sandbox 0.4.1 ships Linux x86_64 and macOS ARM64 binaries. These tests run on Linux only.
 - **No mainnet.** There is no mainnet deployment or claim in this repository. Use testnet or a local sandbox only.
 - **Meta-transactions are not supported for agent-only calls.** A relayed NEP-366 call fails the `signer_account_pk()` check by design.
 
