@@ -1,9 +1,6 @@
 # Attribution
 
-## Origin project
-
-skjold is a port of **attestix**, the open-source AI agent identity and signed-evidence
-toolkit.
+skjold is a port of **attestix**, the open-source AI agent identity and signed-evidence toolkit.
 
 | Field | Value |
 |---|---|
@@ -14,25 +11,22 @@ toolkit.
 | Baseline commit | `dcf823e` (`main`, 2026-10-30) |
 | License | Apache License 2.0, see `LICENSE` |
 
-### Reused from the origin
-
+**Reused from the origin**
 - The Python MCP / FastAPI / CLI service surface and the `Repository` / `Signer` seams.
-- The Ed25519 canonical-JSON credential profile in `auth/crypto.py` and the UCAN
-  delegation evidence and verification logic.
+- The Ed25519 canonical-JSON credential profile in `auth/crypto.py` and the UCAN delegation evidence and verification logic.
 - The conformance vectors in `spec/verify/v1/`, unchanged.
-- The origin's Python dependency set as declared in `pyproject.toml`.
+- The origin Python dependency set as declared in `pyproject.toml`.
 
-### Added or replaced in this repository
-
+**Added or replaced in this repository**
 - `README.md` rewritten for the NEAR port.
 - `contracts/registry/` new Rust registry contract.
 - `sdk/` new Node ESM package declaration.
 - `.env.example`, `scripts/check-contract.sh`, `NOTICE` and this file.
 - The origin EAS/Base anchoring path is unused by the NEAR backend. Those files remain until the port replaces them.
 
-## Third-party components
+**Third-party components**
 
-These are installed from their registries; none is vendored here.
+These are installed from their registries. None is vendored here.
 
 | Component | Version | Used by | License |
 |---|---|---|---|

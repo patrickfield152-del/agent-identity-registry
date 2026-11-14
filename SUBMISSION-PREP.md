@@ -17,16 +17,15 @@ import attestix.main                          -> "skjold MCP server loaded: 47 t
 git diff --check                              -> EXIT 0
 ```
 
-Host `cargo check` (native target) is the wrong gate because it prints `compile_error "Use cargo near build"`. Use `cargo near check` or the wasm target above.
+Host `cargo check` (native target) is the wrong gate. It prints `compile_error "Use cargo near build"`. Use `cargo near check` or the wasm target above.
 
 ## Recordable demo outline (human records, human posts)
 
-1. Show one agent identity: register `agent1.registry.skjold.testnet`, show the
-   single FullAccess key and the `did:near` document.
-2. Show a scoped function-call access key authorizing one contract method.
+1. Show one agent identity: register `agent1.registry.skjold.testnet`. Show the single FullAccess key and the `did:near` document.
+2. Show a scoped function-call access key that authorizes one contract method.
 3. Revoke the key and show the next call fail. One moment, visible result.
-No screenshots-only demo: Q-012 requires a video when judges cannot open it.
-Post must tag @NEARProtocol and #NEARHackathon. Main writes no post.
+
+No screenshots-only demo. Q-012 requires a video when judges cannot open it. The post must tag @NEARProtocol and #NEARHackathon. Main writes no post.
 
 ## Payload fields — ALL EMPTY, human supplies every value
 
@@ -38,27 +37,25 @@ Post must tag @NEARProtocol and #NEARHackathon. Main writes no post.
 | email | valid, <=160, max 2 submissions per address (Q-015) | EMPTY |
 | size | exactly one of `1`, `2 - 4`, `4 - 6`, `6 - 8`, `8+` | EMPTY |
 | tracks | >=1 of defi/thesis/privacy/business/swarms/security/agents/realworld/games/nfts/memecoins/social/open, each once | EMPTY |
-| nearAddress | 2-64 lowercase `^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$`; mainnet account the team creates | EMPTY |
+| nearAddress | 2-64 lowercase `^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$`, mainnet account the team creates | EMPTY |
 | projectUrl | http(s), <=300, public repo, unique | EMPTY |
 | demoUrl | http(s), <=300, published X post | EMPTY |
 | idea | 20-2000 chars: problem, product, how NEAR fits | EMPTY |
 | consent | `true` only after the human hears the notice verbatim | EMPTY |
 
-Never add `website` (spam trap). Print the full JSON and wait for an explicit
-human yes. 201 = saved; 400 = fix `fields`, same requestId; 403 = stop, no retry;
-409 = stop, ask human; 413 = shorten idea; 503 = wait, same requestId.
+Never add `website` (spam trap). Print the full JSON and wait for an explicit human yes. Code 201 means saved. Code 400 means fix `fields` with the same requestId. Code 403 means stop, with no retry. Code 409 means stop and ask the human. Code 413 means shorten the idea. Code 503 means wait with the same requestId.
 
 ## Rules checklist
 
-- Q-003 requires a dedicated branch or `pre-hackathon` and `hackathon-submission` tags plus a README diff link. Not satisfied here: 5 pre-existing tags exist with no local tags created.
-- Q-012 permits a local-only demo with a public repo, reproducible README, and video post.
+- Q-003 requires a dedicated branch or `pre-hackathon` and `hackathon-submission` tags plus a README diff link. Not satisfied here: 5 pre-existing tags exist and no local tags were created.
+- Q-012 permits a local-only demo with a public repo, a reproducible README, and a video post.
 - Q-014 `LICENSE` present. Q-017 README Quickstart at line 5 with numbered steps.
-- Q-015 requires naming any second project sharing this email in README. Unresolved.
-- Origin/baseline disclosure appears in README "Origin & baseline".
+- Q-015 requires naming any second project that shares this email in README. Unresolved.
+- Origin and baseline disclosure appears in README "Origin & baseline".
 
 ## Blockers (do not block submission)
 
-`cargo clippy --target wasm32-unknown-unknown -- -D warnings` holds 8 `too_many_arguments` diagnostics on 4 public `#[near]` ABI methods to preserve the on-chain ABI. All other Celesto Box A gates pass with 0 suppressions added.
+`cargo clippy --target wasm32-unknown-unknown -- -D warnings` holds 8 `too_many_arguments` diagnostics on 4 public `#[near]` ABI methods. The signatures stay to preserve the on-chain ABI. All other Celesto Box A gates pass with 0 suppressions added.
 
 ## Attestation
 

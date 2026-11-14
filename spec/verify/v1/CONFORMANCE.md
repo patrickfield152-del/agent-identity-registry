@@ -1,8 +1,8 @@
 # skjold Verifier Conformance Suite (v1)
 
-A port (Go, Rust, Java, R, JS, …) is **conformant** when it passes every vector in [`vectors.json`](./vectors.json). [`generate_vectors.py`](./generate_vectors.py) creates the authoritative vectors from real skjold 0.4.0 crypto. Read [`README.md`](./README.md) first for the exact canonical rules.
+A port (Go, Rust, Java, R, JS, …) is **conformant** when it passes every vector in [`vectors.json`](./vectors.json). [`generate_vectors.py`](./generate_vectors.py) creates the authoritative vectors from real skjold 0.4.0 crypto. Read [`README.md`](./README.md) first for the canonical rules.
 
-## The verifier surface a port MUST implement
+## Verifier surface a port MUST implement
 
 | Function | Input | Output |
 |---|---|---|
@@ -11,9 +11,8 @@ A port (Go, Rust, Java, R, JS, …) is **conformant** when it passes every vecto
 | `verifyCredential(vc, now) -> {verify, signature_valid, not_expired, not_revoked}` | full W3C VC + current time | booleans (README §1.5) |
 | `verifyDelegationChain(token, parentToken, serverPubKey, now) -> {verify, …}` | EdDSA JWTs | booleans (README §3) |
 
-Notes:
-- `verifyCredential` strips `proof` and `credentialStatus`, canonicalizes the remainder, and Ed25519-verifies `proof.proofValue` (padded base64url) against the `issuer.id` (did:key) public key. `verify` equals `signature_valid AND not_expired AND not_revoked`.
-- `verifyDelegationChain` verifies each JWT EdDSA signature over `b64url(header).b64url(payload)` (unpadded) and confirms the child `att` is a subset of the parent `att`.
+- `verifyCredential` strips `proof` and `credentialStatus`. It canonicalizes the remainder and Ed25519-verifies `proof.proofValue` (padded base64url) against the `issuer.id` (did:key) public key. `verify` equals `signature_valid AND not_expired AND not_revoked`.
+- `verifyDelegationChain` verifies each JWT EdDSA signature over `b64url(header).b64url(payload)` (unpadded). It confirms that the child `att` is a subset of the parent `att`.
 
 ## Vector schema
 
@@ -33,9 +32,7 @@ Each entry in `vectors[]`:
   "pubkey_raw_hex": "8022..."      // raw 32-byte Ed25519 public key
 }
 ```
-
-Top-level: `issuer_did`, `issuer_pubkey_raw_hex`, `issuer_seed_hex` (the fixed
-seed), `skjold_version`, `vector_count`.
+Top-level keys are `issuer_did`, `issuer_pubkey_raw_hex`, `issuer_seed_hex` (the fixed seed), `skjold_version`, and `vector_count`.
 
 ## The 7 vectors
 
@@ -49,20 +46,17 @@ seed), `skjold_version`, `vector_count`.
 | `ucan-chain-valid-001` | verify_delegation_chain | child att subset of parent ⇒ verify **true** |
 | `ucan-chain-escalation-002` | verify_delegation_chain | child att NOT a subset (`admin`) ⇒ verify **false** |
 
-## How to run the vectors (port-side pattern)
+## Run the vectors (port-side pattern)
 
 1. Load `vectors.json`.
-2. For each vector, switch on `kind` and call the matching verifier function.
+2. For each vector, switch on `kind` and call the matching verifier.
 3. Compare every key in `expected` against your output.
-4. For `verify_credential` vectors, use a fixed "now" **after** 2021 and
-   **before** 2027 (e.g. the `now_reference` in `vc-expired-001`) so the valid
-   credential is in-window and the expired one is out-of-window.
-5. For `canonicalize`, compare your `hex(canonical_bytes)` to
-`canonical_bytes_hex`. **This is the highest-signal test.** When it passes, signatures verify. When it fails, downstream checks fail.
+4. For `verify_credential` vectors, use a fixed "now" **after** 2021 and **before** 2027 (e.g. the `now_reference` in `vc-expired-001`). The valid credential is then in-window and the expired one is out-of-window.
+5. For `canonicalize`, compare your `hex(canonical_bytes)` to `canonical_bytes_hex`. **This is the highest-signal test.** When it passes, signatures verify. When it fails, downstream checks fail.
 
 ## Reference: the suite passes the JS path
 
-An Ed25519 verifier built on `@noble/curves` verified the vectors. The JS canonicaliser matches `canonical_bytes_hex`, VC signatures verify against the decoded did:key, tampered VCs fail, and UCAN JWTs verify attenuation. A JS port therefore passes this suite.
+An Ed25519 verifier built on `@noble/curves` verified the vectors. The JS canonicaliser matches `canonical_bytes_hex`. VC signatures verify against the decoded did:key. Tampered VCs fail. UCAN JWTs verify attenuation. A JS port therefore passes this suite.
 
 ## Regenerating
 
@@ -70,5 +64,4 @@ An Ed25519 verifier built on `@noble/curves` verified the vectors. The JS canoni
 pip install skjold==0.4.0     # or use the local dev tree
 python spec/verify/v1/generate_vectors.py
 ```
-
-Output is deterministic from a fixed seed and frozen timestamps, so a clean run produces byte-identical `vectors.json`.
+Output is deterministic from a fixed seed and frozen timestamps. A clean run produces byte-identical `vectors.json`.
