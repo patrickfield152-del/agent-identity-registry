@@ -2,13 +2,7 @@
 
 import json
 
-
-def _validate_required(params: dict) -> str:
-    """Return error JSON if any required param is empty, else empty string."""
-    for name, value in params.items():
-        if not value or (isinstance(value, str) and not value.strip()):
-            return json.dumps({"error": f"{name} cannot be empty"})
-    return ""
+from attestix.tools import validate_required
 
 
 def register(mcp):
@@ -35,7 +29,7 @@ def register(mcp):
             issuer_name: Who issued this identity.
             expiry_days: Days until expiry (default 365).
         """
-        err = _validate_required({"display_name": display_name})
+        err = validate_required({"display_name": display_name})
         if err:
             return err
 
@@ -185,7 +179,7 @@ def register(mcp):
         Args:
             agent_id: The skjold agent ID to purge.
         """
-        err = _validate_required({"agent_id": agent_id})
+        err = validate_required({"agent_id": agent_id})
         if err:
             return err
 

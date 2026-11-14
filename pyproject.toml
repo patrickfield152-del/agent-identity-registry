@@ -7,7 +7,8 @@ name = "skjold"
 version = "0.5.0"
 description = "skjold - NEAR-native AI agent identity and signed evidence tooling. did:near identity, W3C Verifiable Credentials, governance evidence, delegation chains, and reputation scoring."
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.12"
 keywords = [
     "skjold",
@@ -33,11 +34,10 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security :: Cryptography",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -75,9 +75,9 @@ api = ["fastapi>=0.162.7,<0.170", "uvicorn[standard]>=0.54.0,<0.60", "starlette>
 # Framework integration extras. The callback / adapter classes live under
 # `attestix.integrations.<framework>` and import their SDK lazily so
 # `import attestix.integrations` itself is always cheap.
-langchain = ["langchain-core>=1.4.6,<2.0"]
-crewai = ["crewai>=0.95,<0.200"]
-openai-agents = ["openai-agents>=0.0.20"]
+langchain = ["langchain-core>=1.8.0,<2.0"]
+crewai = ["crewai>=1.15.41,<2.0"]
+openai-agents = ["openai-agents>=0.24.0,<1.0"]
 test = ["pytest>=9.2.0", "pytest-asyncio>=1.5.0", "respx>=0.23.1", "pytest-cov>=7.1.0"]
 lint = ["ruff>=0.17.5", "mypy>=2.4.1"]
 security = ["pip-audit>=2.10.1", "bandit>=1.9.4"]

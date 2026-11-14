@@ -41,6 +41,23 @@ from attestix.storage.repository import DEFAULT_TENANT
 MAX_DISPLAY_NAME_LENGTH = 500
 
 
+def validate_display_name(value: Optional[str]) -> str:
+    """Validate and normalize an agent display name."""
+    if value is None:
+        raise ValueError("display_name is required")
+    if not isinstance(value, str):
+        raise ValueError("display_name must be a string")
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("display_name must not be empty or whitespace-only")
+    if len(stripped) > MAX_DISPLAY_NAME_LENGTH:
+        raise ValueError(
+            f"display_name must be at most {MAX_DISPLAY_NAME_LENGTH} characters"
+        )
+    if any(ord(ch) < 0x20 and ch != "\t" for ch in stripped):
+        raise ValueError("display_name contains disallowed control characters")
+    return stripped
+
 class IdentityService:
     """Manages UAIT lifecycle."""
 
@@ -92,20 +109,7 @@ class IdentityService:
         """Create a new UAIT from any identity source."""
         # Defense in depth: validate even when callers skip the API layer.
         # Issue #32 - reject empty/whitespace/overlong display_name.
-        if display_name is None:
-            raise ValueError("display_name is required")
-        if not isinstance(display_name, str):
-            raise ValueError("display_name must be a string")
-        stripped = display_name.strip()
-        if not stripped:
-            raise ValueError("display_name must not be empty or whitespace-only")
-        if len(stripped) > MAX_DISPLAY_NAME_LENGTH:
-            raise ValueError(
-                f"display_name must be at most {MAX_DISPLAY_NAME_LENGTH} characters"
-            )
-        if any(ord(ch) < 0x20 and ch != "\t" for ch in stripped):
-            raise ValueError("display_name contains disallowed control characters")
-        display_name = stripped
+        display_name = validate_display_name(display_name)
 
         repository = self._near_repository()
         if repository is not None:

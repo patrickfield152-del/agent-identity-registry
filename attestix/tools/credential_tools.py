@@ -5,12 +5,7 @@ W3C Verifiable Credentials (VC Data Model 1.1) issuance and verification.
 
 import json
 
-
-def _validate_required(params: dict) -> str:
-    for name, value in params.items():
-        if not value or (isinstance(value, str) and not value.strip()):
-            return json.dumps({"error": f"{name} cannot be empty"})
-    return ""
+from attestix.tools import validate_required
 
 
 def register(mcp):
@@ -33,9 +28,9 @@ def register(mcp):
             claims_json: JSON string of credential claims (e.g., {"compliant": true, "risk_level": "high"}).
             expiry_days: Days until credential expires (default 365).
         """
-        err = _validate_required({"agent_id": agent_id,
-                                   "credential_type": credential_type,
-                                   "issuer_name": issuer_name, "claims_json": claims_json})
+        err = validate_required({"agent_id": agent_id,
+                                 "credential_type": credential_type,
+                                 "issuer_name": issuer_name, "claims_json": claims_json})
         if err:
             return err
 

@@ -12,6 +12,17 @@ MCP tool registration modules (47 tools across 9 modules):
     - blockchain_tools: 6 tools for registry anchoring
 """
 
+import json
+
+
+def validate_required(params: dict) -> str:
+    """Return error JSON if any required param is empty, else empty string."""
+    for name, value in params.items():
+        if not value or (isinstance(value, str) and not value.strip()):
+            return json.dumps({"error": f"{name} cannot be empty"})
+    return ""
+
+
 # Re-export submodules
 from attestix.tools import identity_tools
 from attestix.tools import agent_card_tools

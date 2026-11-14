@@ -81,14 +81,15 @@ class ReputationService:
             data = load_reputation()
             data["interactions"].append(interaction)
 
-            # Recompute score for this agent
-            score = self._compute_score(data["interactions"], agent_id)
+            # Single-pass agent slice avoids redundant full-table scans.
+            agent_interactions = [
+                i for i in data["interactions"] if i["agent_id"] == agent_id
+            ]
+            score = self._score_interactions(agent_interactions, time.time())
             data["scores"][agent_id] = {
                 "trust_score": round(score, 4),
                 "last_updated": now.isoformat(),
-                "total_interactions": sum(
-                    1 for i in data["interactions"] if i["agent_id"] == agent_id
-                ),
+                "total_interactions": len(agent_interactions),
             }
 
             save_reputation(data)
@@ -135,7 +136,7 @@ class ReputationService:
                     "message": "No interactions recorded for this agent.",
                 }
 
-            score = self._compute_score(data["interactions"], agent_id)
+            score = self._score_interactions(agent_interactions, time.time())
 
             # Category breakdown
             categories = {}
@@ -178,7 +179,8 @@ class ReputationService:
             grouped: dict = {}
             for interaction in data["interactions"]:
                 grouped.setdefault(interaction["agent_id"], []).append(interaction)
-            agent_ids = set(i["agent_id"] for i in data["interactions"])
+            agent_ids = set(grouped)
+            now = time.time()
 
             results = []
             for aid in agent_ids:
@@ -193,11 +195,10 @@ class ReputationService:
                 if len(agent_interactions) < min_interactions:
                     continue
 
-                score = self._compute_score(
+                score = self._score_interactions(
                     agent_interactions if category else grouped[aid],
-                    aid,
+                    now,
                 )
-
                 if min_score <= score <= max_score:
                     results.append({
                         "agent_id": aid,
@@ -218,36 +219,26 @@ class ReputationService:
                 )
             }]
 
-    def _compute_score(self, all_interactions: list, agent_id: str) -> float:
-        """Compute recency-weighted trust score (0.0 - 1.0).
-
-        Uses exponential decay with 30-day half-life:
-        weight = exp(-lambda * age_seconds)
-        score = sum(outcome_weight * decay_weight) / sum(decay_weight)
-        """
-        now = time.time()
-        agent_interactions = [
-            i for i in all_interactions if i["agent_id"] == agent_id
-        ]
-
+    @staticmethod
+    def _score_interactions(agent_interactions: list, now: float) -> float:
+        """Compute recency-weighted trust score (0.0 - 1.0) for one agent."""
         if not agent_interactions:
             return 0.0
 
         weighted_sum = 0.0
         weight_total = 0.0
-
         for interaction in agent_interactions:
-            epoch = interaction.get("epoch", 0)
-            age = max(now - epoch, 0)
+            age = max(now - interaction.get("epoch", 0), 0)
             decay = math.exp(-DECAY_LAMBDA * age)
-
-            outcome = interaction.get("outcome", "failure")
-            outcome_val = OUTCOME_WEIGHTS.get(outcome, 0.0)
-
+            outcome_val = OUTCOME_WEIGHTS.get(interaction.get("outcome", "failure"), 0.0)
             weighted_sum += outcome_val * decay
             weight_total += decay
 
-        if weight_total == 0:
-            return 0.0
+        return weighted_sum / weight_total if weight_total else 0.0
 
-        return weighted_sum / weight_total
+    def _compute_score(self, all_interactions: list, agent_id: str) -> float:
+        """Compute recency-weighted trust score (0.0 - 1.0)."""
+        agent_interactions = [
+            i for i in all_interactions if i["agent_id"] == agent_id
+        ]
+        return self._score_interactions(agent_interactions, time.time())

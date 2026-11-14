@@ -279,7 +279,7 @@ class NodeTxSigner:
         if not node_available(self.node_bin):
             raise NearSignerError(
                 f"Node is not available ({self.node_bin!r}). The NEAR transaction "
-                "transport needs Node >= 22.22.2."
+                "transport needs Node >= 26.13.1."
             )
         if not self.script_path.exists():
             raise NearSignerError(

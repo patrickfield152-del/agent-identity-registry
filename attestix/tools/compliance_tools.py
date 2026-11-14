@@ -5,12 +5,7 @@ EU AI Act compliance profiles, conformity assessments, and declarations.
 
 import json
 
-
-def _validate_required(params: dict) -> str:
-    for name, value in params.items():
-        if not value or (isinstance(value, str) and not value.strip()):
-            return json.dumps({"error": f"{name} cannot be empty"})
-    return ""
+from attestix.tools import validate_required
 
 
 def register(mcp):
@@ -52,8 +47,8 @@ def register(mcp):
                 'financial_fraud_detection', 'political_campaign_organization'.
                 Leave empty if no exception applies.
         """
-        err = _validate_required({"agent_id": agent_id, "risk_category": risk_category,
-                                   "provider_name": provider_name})
+        err = validate_required({"agent_id": agent_id, "risk_category": risk_category,
+                                 "provider_name": provider_name})
         if err:
             return err
 

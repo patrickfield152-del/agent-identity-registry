@@ -51,12 +51,6 @@ def _get_env(key: str, default: Optional[str] = None) -> Optional[str]:
     return os.getenv(key, default)
 
 
-# Universal Resolver endpoint (for DID resolution)
-UNIVERSAL_RESOLVER_URL = _get_env(
-    "UNIVERSAL_RESOLVER_URL",
-    default="https://dev.uniresolver.io/1.0/identifiers/",
-)
-
 # Default public RPC endpoints per NEAR network.
 NEAR_DEFAULT_RPC_URLS = {
     "testnet": "https://rpc.testnet.near.org",

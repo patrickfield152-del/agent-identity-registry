@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from attestix.api.deps import get_identity_service
-from attestix.services.identity_service import IdentityService
+from attestix.services.identity_service import (
+    MAX_DISPLAY_NAME_LENGTH,
+    IdentityService,
+    validate_display_name,
+)
 
 logger = logging.getLogger("attestix.api.identity")
 
@@ -21,10 +25,6 @@ router = APIRouter(prefix="/v1/identities", tags=["identity"])
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
-
-#: Maximum allowed length for an agent display name (defense in depth against
-#: UI abuse, log-injection, and storage bloat).
-MAX_DISPLAY_NAME_LENGTH = 500
 
 
 class CreateIdentityRequest(BaseModel):
@@ -44,19 +44,7 @@ class CreateIdentityRequest(BaseModel):
     @field_validator("display_name")
     @classmethod
     def _validate_display_name(cls, value: str) -> str:
-        if value is None:
-            raise ValueError("display_name is required")
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("display_name must not be empty or whitespace-only")
-        if len(stripped) > MAX_DISPLAY_NAME_LENGTH:
-            raise ValueError(
-                f"display_name must be at most {MAX_DISPLAY_NAME_LENGTH} characters"
-            )
-        # Reject control characters that could break logs, JSON, or terminals.
-        if any(ord(ch) < 0x20 and ch not in ("\t",) for ch in stripped):
-            raise ValueError("display_name contains disallowed control characters")
-        return stripped
+        return validate_display_name(value)
 
 
 class TranslateIdentityRequest(BaseModel):

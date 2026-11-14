@@ -12,18 +12,26 @@ from typing import List, Tuple
 # Domain separation prefixes (RFC 6962 Section 2.1)
 _LEAF_PREFIX = b"\x00"
 _NODE_PREFIX = b"\x01"
+_CANONICAL_ENCODER = json.JSONEncoder(
+    sort_keys=True, separators=(",", ":"), ensure_ascii=False
+)
+_LEAF_HASH = hashlib.sha256(_LEAF_PREFIX)
+_NODE_HASH = hashlib.sha256(_NODE_PREFIX)
 
 
 def hash_leaf(data: dict) -> bytes:
     """SHA-256 hash of a canonical JSON representation with leaf domain prefix."""
-    canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(_LEAF_PREFIX + canonical.encode("utf-8")).digest()
+    h = _LEAF_HASH.copy()
+    h.update(_CANONICAL_ENCODER.encode(data).encode("utf-8"))
+    return h.digest()
 
 
 def hash_pair(left: bytes, right: bytes) -> bytes:
     """SHA-256 hash of two child hashes with internal node domain prefix."""
-    return hashlib.sha256(_NODE_PREFIX + left + right).digest()
-
+    h = _NODE_HASH.copy()
+    h.update(left)
+    h.update(right)
+    return h.digest()
 
 def build_merkle_tree(leaves: List[bytes]) -> Tuple[bytes, List[List[bytes]]]:
     """Build a Merkle tree from leaf hashes.

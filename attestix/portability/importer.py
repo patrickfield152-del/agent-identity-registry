@@ -592,7 +592,7 @@ class Importer:
         try:
             # Local import to avoid pulling httpx into bundle_reader's surface.
             from attestix.services.did_service import DIDService
-        except Exception:  # noqa: BLE001
+        except ImportError:
             return  # If DIDService is unimportable we trust the bundle blindly.
 
         svc = DIDService()

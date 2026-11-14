@@ -15,7 +15,7 @@ is imported only when the registry environment is present, and
 """
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from attestix.storage.repository import DEFAULT_TENANT, Repository
 from attestix.storage.file_repository import FileRepository
@@ -106,8 +106,14 @@ def select_repository(config: Optional[dict] = None) -> Repository:
     )
 
 
-# Imported after the lazy selector definitions: the module itself is
-# import-light (no config import at module scope), so this keeps
-# `attestix.storage.NearRepository` available without a cycle.
-from attestix.storage import near_repository  # noqa: E402
-from attestix.storage.near_repository import NearRepository  # noqa: E402
+def __getattr__(name: str) -> Any:
+    """Lazily expose NEAR adapter symbols without closing an import cycle."""
+    if name == "NearRepository":
+        from attestix.storage.near_repository import NearRepository
+
+        return NearRepository
+    if name == "near_repository":
+        from attestix.storage import near_repository
+
+        return near_repository
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

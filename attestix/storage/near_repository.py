@@ -568,10 +568,20 @@ class NearRepository(Repository):
         record = self._body_records(collection).get(key)
         return dict(record) if isinstance(record, dict) else None
 
-    def _tombstones(self, collection: str) -> Dict[str, dict]:
+    def _body_store_slice(
+        self, collection: str
+    ) -> Tuple[Dict[str, dict], Dict[str, dict]]:
         document = self._load_body_store()
         tombstones = document["tombstones"].get(collection, {})
-        return tombstones if isinstance(tombstones, dict) else {}
+        records = document["records"].get(collection, {})
+        return (
+            tombstones if isinstance(tombstones, dict) else {},
+            records if isinstance(records, dict) else {},
+        )
+
+    def _tombstones(self, collection: str) -> Dict[str, dict]:
+        tombstones, _ = self._body_store_slice(collection)
+        return tombstones
 
     def _store_body(
         self, collection: str, key: str, record: dict, *, keep_history: bool
@@ -585,18 +595,24 @@ class NearRepository(Repository):
         self._save_body_store(document)
         return dict(record)
 
-    def _tombstone(self, collection: str, key: str) -> bool:
+    def _tombstone_many(self, collection: str, keys: Iterable[Optional[str]]) -> bool:
+        key_list = [k for k in dict.fromkeys(keys) if k]
+        if not key_list:
+            return False
         document = self._load_body_store()
         tombstone = document["tombstones"].setdefault(collection, {})
-        existed = (
-            key in document["records"].get(collection, {})
-            or key in tombstone
-        )
-        tombstone[key] = {"deleted_at": _now_iso()}
-        document["records"].setdefault(collection, {}).pop(key, None)
+        records = document["records"].setdefault(collection, {})
+        existed = False
+        now_iso = _now_iso()
+        for key in key_list:
+            existed = existed or (key in records or key in tombstone)
+            tombstone[key] = {"deleted_at": now_iso}
+            records.pop(key, None)
         self._save_body_store(document)
         return existed
 
+    def _tombstone(self, collection: str, key: str) -> bool:
+        return self._tombstone_many(collection, [key])
     # --- projection helpers ------------------------------------------------
 
     @staticmethod
@@ -1256,7 +1272,7 @@ class NearRepository(Repository):
         return results
 
     def _list_identities(self, filters: dict, limit: Optional[int]) -> List[dict]:
-        tombstones = self._tombstones("identities")
+        tombstones, body_records = self._body_store_slice("identities")
         view_records = self._list_identity_views(
             source_protocol=filters.get("source_protocol"),
             status=filters.get("status"),
@@ -1271,25 +1287,22 @@ class NearRepository(Repository):
             if not agent or agent in tombstones:
                 continue
             seen.add(agent)
-            results.append(
-                self._agent_record_to_document(
-                    record, self._body_record("identities", agent)
-                )
-            )
-        for key, body in self._body_records("identities").items():
+            raw_body = body_records.get(agent)
+            body = dict(raw_body) if isinstance(raw_body, dict) else None
+            results.append(self._agent_record_to_document(record, body))
+        for key, body in body_records.items():
             if key in seen or key in tombstones or not isinstance(body, dict):
                 continue
             results.append(self._pending_document(body))
         return results
 
     def _list_credentials(self, filters: dict, limit: Optional[int]) -> List[dict]:
-        tombstones = self._tombstones("credentials")
+        tombstones, body_records = self._body_store_slice("credentials")
         subject = (
             filters.get("subject_did")
             or filters.get("agent_id")
             or filters.get("credentialSubject")
         )
-        body_records = self._body_records("credentials")
         by_cid: Dict[str, dict] = {}
         for key, body in body_records.items():
             if not isinstance(body, dict) or body.get("id") in tombstones or key in tombstones:
@@ -1324,7 +1337,7 @@ class NearRepository(Repository):
         return results
 
     def _list_delegations(self, filters: dict, limit: Optional[int]) -> List[dict]:
-        tombstones = self._tombstones("delegations")
+        tombstones, body_records = self._body_store_slice("delegations")
         agent = filters.get("agent") or filters.get("agent_id")
         view_records = self._list_delegation_views(agent if isinstance(agent, str) else None)
         results: List[dict] = []
@@ -1334,17 +1347,14 @@ class NearRepository(Repository):
             if not jti or jti in tombstones:
                 continue
             seen.add(jti)
-            results.append(
-                self._delegation_document(
-                    record, self._body_record("delegations", jti)
-                )
-            )
-        for jti, body in self._body_records("delegations").items():
+            raw_body = body_records.get(jti)
+            body = dict(raw_body) if isinstance(raw_body, dict) else None
+            results.append(self._delegation_document(record, body))
+        for jti, body in body_records.items():
             if jti in seen or jti in tombstones or not isinstance(body, dict):
                 continue
             results.append(self._delegation_document(None, body))
         return results
-
     def _list_reputation(self, filters: dict, limit: Optional[int]) -> List[dict]:
         agent = filters.get("agent_id") or filters.get("agent")
         if isinstance(agent, str) and agent:
@@ -1374,7 +1384,7 @@ class NearRepository(Repository):
         return all(record.get(key) == value for key, value in filters.items())
 
     def _list_anchors(self, filters: dict, limit: Optional[int]) -> List[dict]:
-        tombstones = self._tombstones("anchors")
+        tombstones, body_records = self._body_store_slice("anchors")
         subject = filters.get("subject_account") or filters.get("agent")
         take = None if limit is None else max(0, int(limit))
         if take == 0:
@@ -1387,16 +1397,16 @@ class NearRepository(Repository):
                 if digest in tombstones or digest in seen:
                     continue
                 seen.add(digest)
-                document = self._anchor_document(
-                    record, self._body_record("anchors", digest), digest
-                )
+                raw_body = body_records.get(digest)
+                body = dict(raw_body) if isinstance(raw_body, dict) else None
+                document = self._anchor_document(record, body, digest)
                 if not self._matches_filters(document, filters):
                     continue
                 results.append(document)
                 if take is not None and len(results) >= take:
                     return results
         pending = []
-        for digest, body in self._body_records("anchors").items():
+        for digest, body in body_records.items():
             if digest in seen or digest in tombstones or not isinstance(body, dict):
                 continue
             # Local body fields can reject a candidate before its chain read.
@@ -1862,9 +1872,7 @@ class NearRepository(Repository):
             for item in cleaned.get(list_key, [])
             if isinstance(item, dict)
         }
-        for key in before - after:
-            if key:
-                self._tombstone(collection, key)
+        self._tombstone_many(collection, before - after)
         return counts
 
     @staticmethod

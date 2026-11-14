@@ -9,12 +9,7 @@ hash.
 
 import json
 
-
-def _validate_required(params: dict) -> str:
-    for name, value in params.items():
-        if not value or (isinstance(value, str) and not value.strip()):
-            return json.dumps({"error": f"{name} cannot be empty"})
-    return ""
+from attestix.tools import validate_required
 
 
 def _blockchain_service():
@@ -37,7 +32,7 @@ def register(mcp):
         Args:
             agent_id: The agent account id (e.g., agent1.registry.skjold.testnet).
         """
-        err = _validate_required({"agent_id": agent_id})
+        err = validate_required({"agent_id": agent_id})
         if err:
             return err
 
@@ -54,7 +49,7 @@ def register(mcp):
         Args:
             credential_id: The credential URN (e.g., urn:uuid:...).
         """
-        err = _validate_required({"credential_id": credential_id})
+        err = validate_required({"credential_id": credential_id})
         if err:
             return err
 
@@ -131,7 +126,7 @@ def register(mcp):
             start_date: ISO date for start of range. Empty = all.
             end_date: ISO date for end of range. Empty = all.
         """
-        err = _validate_required({"agent_id": agent_id})
+        err = validate_required({"agent_id": agent_id})
         if err:
             return err
 
@@ -149,7 +144,7 @@ def register(mcp):
         Args:
             agent_id: The agent account id.
         """
-        err = _validate_required({"agent_id": agent_id})
+        err = validate_required({"agent_id": agent_id})
         if err:
             return err
 

@@ -239,7 +239,7 @@ class DIDService:
         if not node_bin:
             return {
                 "error": (
-                    "did:near resolution requires Node >= 22.22.2 on PATH "
+                    "did:near resolution requires Node >= 26.13.1 on PATH "
                     "(sdk/src/did-near.mjs)."
                 ),
                 "did": did,

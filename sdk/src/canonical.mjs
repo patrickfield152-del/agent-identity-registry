@@ -12,7 +12,7 @@
 //
 // Canonicalization is only used off-chain for signatures and digests; contract
 // arguments are a separate wire concern (see `demo.js`).
-import { createHash } from "node:crypto";
+import * as nodeCrypto from "node:crypto";
 
 /** UAIT fields that never enter `uait_digest` (origin `IdentityService.MUTABLE_FIELDS`). */
 export const UAIT_MUTABLE_FIELDS = Object.freeze(
@@ -134,7 +134,10 @@ export function canonicalizeJson(value, excludedKeys = []) {
 }
 
 export function sha256(bytes) {
-  return createHash("sha256").update(bytes).digest();
+  if (typeof nodeCrypto.hash === "function") {
+    return nodeCrypto.hash("sha256", bytes, "buffer");
+  }
+  return nodeCrypto.createHash("sha256").update(bytes).digest();
 }
 
 /**
@@ -148,11 +151,17 @@ export function capabilitiesDigest(capabilities) {
 
 /** Standard Base64 (the cid wire/DID-string form, not base64url). */
 export function digestBase64(bytes) {
+  if (bytes instanceof Uint8Array && typeof bytes.toBase64 === "function") {
+    return bytes.toBase64();
+  }
   return Buffer.from(bytes).toString("base64");
 }
 
 /** base64url WITH padding: `python base64.urlsafe_b64encode` (the proof profile). */
 export function base64UrlWithPadding(bytes) {
+  if (bytes instanceof Uint8Array && typeof bytes.toBase64 === "function") {
+    return bytes.toBase64({ alphabet: "base64url" });
+  }
   return Buffer.from(bytes)
     .toString("base64")
     .replaceAll("+", "-")

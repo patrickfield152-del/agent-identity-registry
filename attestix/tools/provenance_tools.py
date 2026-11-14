@@ -5,12 +5,7 @@ Training data provenance, model lineage, and Article 12 audit trail.
 
 import json
 
-
-def _validate_required(params: dict) -> str:
-    for name, value in params.items():
-        if not value or (isinstance(value, str) and not value.strip()):
-            return json.dumps({"error": f"{name} cannot be empty"})
-    return ""
+from attestix.tools import validate_required
 
 
 def register(mcp):
@@ -37,7 +32,7 @@ def register(mcp):
             contains_personal_data: Whether dataset contains personal data (GDPR).
             data_governance_measures: Description of data quality/governance measures.
         """
-        err = _validate_required({"agent_id": agent_id, "dataset_name": dataset_name})
+        err = validate_required({"agent_id": agent_id, "dataset_name": dataset_name})
         if err:
             return err
 

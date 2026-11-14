@@ -48,6 +48,7 @@ import tarfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, Tuple
 
@@ -138,56 +139,18 @@ def _row_identity_to_cloud(oss: dict, *, workspace_id: str) -> dict:
     }
 
 
-def _row_credential_to_cloud(oss: dict, *, workspace_id: str) -> dict:
-    """Project an OSS credential row (the VC body) into the cloud ``credentials`` wire shape."""
-    cloud_id = oss.get("_cloud_id") or _gen_cloud_id("credential", oss.get("id", ""))
-    cloud_ws = oss.get("_cloud_workspace_id") or workspace_id
-    # The OSS row IS the VC body itself — strip OSS-only annotations before
-    # nesting it under the cloud row's `credential` column.
-    body = {
-        k: v
-        for k, v in oss.items()
-        if k not in {"_cloud_id", "_cloud_workspace_id", "tenant_id"}
-    }
-    return {
-        "id": cloud_id,
-        "workspace_id": cloud_ws,
-        "credential": body,
-    }
-
-
-def _row_compliance_profile_to_cloud(oss: dict, *, workspace_id: str) -> dict:
-    """Project an OSS compliance profile into the cloud ``compliance_profiles`` shape."""
-    cloud_id = oss.get("_cloud_id") or _gen_cloud_id("compliance_profile", oss.get("profile_id", ""))
+def _project_row(
+    oss: dict, *, workspace_id: str, kind: str, id_key: str, out_key: str
+) -> dict:
+    """Project an OSS row into a generic ``{id, workspace_id, <out_key>}`` cloud row."""
+    cloud_id = oss.get("_cloud_id") or _gen_cloud_id(kind, oss.get(id_key, ""))
     cloud_ws = oss.get("_cloud_workspace_id") or workspace_id
     body = {
         k: v
         for k, v in oss.items()
         if k not in {"_cloud_id", "_cloud_workspace_id", "tenant_id"}
     }
-    return {
-        "id": cloud_id,
-        "workspace_id": cloud_ws,
-        "profile": body,
-    }
-
-
-def _row_conformity_assessment_to_cloud(oss: dict, *, workspace_id: str) -> dict:
-    """Project an OSS conformity assessment into the cloud ``conformity_assessments`` shape."""
-    cloud_id = oss.get("_cloud_id") or _gen_cloud_id(
-        "conformity_assessment", oss.get("assessment_id", "")
-    )
-    cloud_ws = oss.get("_cloud_workspace_id") or workspace_id
-    body = {
-        k: v
-        for k, v in oss.items()
-        if k not in {"_cloud_id", "_cloud_workspace_id", "tenant_id"}
-    }
-    return {
-        "id": cloud_id,
-        "workspace_id": cloud_ws,
-        "assessment": body,
-    }
+    return {"id": cloud_id, "workspace_id": cloud_ws, out_key: body}
 
 
 def _row_audit_event_to_cloud(oss: dict, *, workspace_id: str) -> dict:
@@ -234,20 +197,6 @@ def _row_audit_event_to_cloud(oss: dict, *, workspace_id: str) -> dict:
     }
 
 
-def _row_anchor_to_cloud(oss: dict, *, workspace_id: str) -> dict:
-    """Project an OSS anchor row into the cloud ``anchors`` wire shape."""
-    cloud_id = oss.get("_cloud_id") or _gen_cloud_id("anchor", oss.get("anchor_id", ""))
-    cloud_ws = oss.get("_cloud_workspace_id") or workspace_id
-    body = {
-        k: v
-        for k, v in oss.items()
-        if k not in {"_cloud_id", "_cloud_workspace_id", "tenant_id"}
-    }
-    return {
-        "id": cloud_id,
-        "workspace_id": cloud_ws,
-        "anchor": body,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +236,13 @@ EXPORT_PLAN: List[TableSpec] = [
     # Cloud-only — emitted as an empty JSONL so the OSS bundle has the same
     # member set as a cloud bundle (the importer skips these on read).
     TableSpec("key_references", None, "id", "", None),
-    TableSpec("credentials", "credentials", "id", "credentials", _row_credential_to_cloud),
+    TableSpec(
+        "credentials",
+        "credentials",
+        "id",
+        "credentials",
+        partial(_project_row, kind="credential", id_key="id", out_key="credential"),
+    ),
     TableSpec("credential_schemas", None, "id", "", None),
     TableSpec("memberships", None, "id", "", None),
     TableSpec("team_invites", None, "id", "", None),
@@ -297,18 +252,31 @@ EXPORT_PLAN: List[TableSpec] = [
         "compliance",
         "profile_id",
         "profiles",
-        _row_compliance_profile_to_cloud,
+        partial(
+            _project_row, kind="compliance_profile", id_key="profile_id", out_key="profile"
+        ),
     ),
     TableSpec(
         "conformity_assessments",
         "compliance",
         "assessment_id",
         "assessments",
-        _row_conformity_assessment_to_cloud,
+        partial(
+            _project_row,
+            kind="conformity_assessment",
+            id_key="assessment_id",
+            out_key="assessment",
+        ),
     ),
     TableSpec("agent_dependencies", None, "id", "", None),
     TableSpec("audit_events", "audit", "event_id", "events", _row_audit_event_to_cloud),
-    TableSpec("anchors", "anchors", "anchor_id", "anchors", _row_anchor_to_cloud),
+    TableSpec(
+        "anchors",
+        "anchors",
+        "anchor_id",
+        "anchors",
+        partial(_project_row, kind="anchor", id_key="anchor_id", out_key="anchor"),
+    ),
     TableSpec("webhook_endpoints", None, "id", "", None),
 ]
 
