@@ -18,9 +18,7 @@ logger = logging.getLogger("attestix.api.agent_cards")
 router = APIRouter(prefix="/v1/agent-cards", tags=["agent-cards"])
 
 
-# ---------------------------------------------------------------------------
 # Request models
-# ---------------------------------------------------------------------------
 
 class DiscoverAgentRequest(BaseModel):
     base_url: str = Field(
@@ -49,9 +47,7 @@ class GenerateAgentCardRequest(BaseModel):
     version: str = Field("1.0.0", description="Agent version string")
 
 
-# ---------------------------------------------------------------------------
 # Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/discover")
 def discover_agent(

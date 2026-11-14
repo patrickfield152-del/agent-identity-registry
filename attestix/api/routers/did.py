@@ -17,18 +17,14 @@ logger = logging.getLogger("attestix.api.did")
 router = APIRouter(prefix="/v1/dids", tags=["did"])
 
 
-# ---------------------------------------------------------------------------
 # Request models
-# ---------------------------------------------------------------------------
 
 class CreateWebDidRequest(BaseModel):
     domain: str = Field(..., description="Deprecated domain hint; retained for request compatibility")
     path: str = Field("", description="Deprecated path hint; retained for request compatibility")
 
 
-# ---------------------------------------------------------------------------
 # Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/key", status_code=201)
 def create_did_key(

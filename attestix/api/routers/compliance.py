@@ -21,9 +21,7 @@ logger = logging.getLogger("attestix.api.compliance")
 router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 
 
-# ---------------------------------------------------------------------------
 # Request models
-# ---------------------------------------------------------------------------
 
 class CreateComplianceProfileRequest(BaseModel):
     agent_id: str = Field(..., description="Agent ID to create profile for")
@@ -66,9 +64,7 @@ class GenerateDeclarationRequest(BaseModel):
     agent_id: str = Field(..., description="Agent ID to generate declaration for")
 
 
-# ---------------------------------------------------------------------------
 # Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/profiles", status_code=201)
 def create_compliance_profile(

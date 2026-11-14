@@ -20,9 +20,7 @@ logger = logging.getLogger("attestix.api.blockchain")
 router = APIRouter(prefix="/v1/blockchain", tags=["blockchain"])
 
 
-# ---------------------------------------------------------------------------
 # Request models
-# ---------------------------------------------------------------------------
 
 class AnchorIdentityRequest(BaseModel):
     agent_id: str = Field(..., description="Agent ID whose identity to anchor on-chain")
@@ -42,9 +40,7 @@ class VerifyAnchorRequest(BaseModel):
     artifact_hash: str = Field(..., description="SHA-256 hash of the artifact to verify on-chain")
 
 
-# ---------------------------------------------------------------------------
 # Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/anchor/identity", status_code=201)
 def anchor_identity(

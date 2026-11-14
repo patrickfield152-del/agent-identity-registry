@@ -18,9 +18,7 @@ logger = logging.getLogger("attestix.api.credentials")
 router = APIRouter(prefix="/v1", tags=["credentials"])
 
 
-# ---------------------------------------------------------------------------
 # Request / Response models
-# ---------------------------------------------------------------------------
 
 class IssueCredentialRequest(BaseModel):
     subject_id: str = Field(..., description="Agent ID the credential is issued to")
@@ -45,9 +43,7 @@ class CreatePresentationRequest(BaseModel):
     challenge: str = Field("", description="Challenge nonce for replay protection")
 
 
-# ---------------------------------------------------------------------------
 # Credential endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/credentials", status_code=201)
 def issue_credential(
@@ -154,9 +150,7 @@ def revoke_credential(
     return result
 
 
-# ---------------------------------------------------------------------------
 # Presentation endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/presentations", status_code=201)
 def create_verifiable_presentation(
