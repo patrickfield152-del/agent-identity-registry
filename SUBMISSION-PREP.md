@@ -47,10 +47,10 @@ Never add `website` (spam trap). Print the full JSON and wait for an explicit hu
 
 ## Rules checklist
 
-- Q-003 requires a dedicated branch or `pre-hackathon` and `hackathon-submission` tags plus a README diff link. Not satisfied here: 5 pre-existing tags exist and no local tags were created.
+- Q-003 requires a dedicated branch or `pre-hackathon` and `hackathon-submission` tags plus a README diff link. Local tags `pre-hackathon` and `hackathon-submission` exist (not pushed). 5 pre-existing wave tags (`wave-1` … `wave-4`) also exist and were not created for the submission.
 - Q-012 permits a local-only demo with a public repo, a reproducible README, and a video post.
 - Q-014 `LICENSE` present. Q-017 README Quickstart at line 5 with numbered steps.
-- Q-015 requires naming any second project that shares this email in README. Unresolved.
+- Q-015 requires naming any second project that shares this email in README. Disclosed: README names **stele** as the second project on this email. The shared email itself is the human's choice (max 2 submissions per address).
 - Origin and baseline disclosure appears in README "Origin & baseline".
 
 ## Blockers (do not block submission)
@@ -59,4 +59,4 @@ Never add `website` (spam trap). Print the full JSON and wait for an explicit hu
 
 ## Attestation
 
-Nothing published, pushed, tagged, or submitted. No payload value invented.
+Nothing published, pushed, tagged, or submitted. No payload value invented. The pytest line above was captured on Celesto Box A at tag `hackathon-submission` (`a8739da`); 3 docs-only commits on top have not been re-run there.

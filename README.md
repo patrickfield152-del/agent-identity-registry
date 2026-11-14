@@ -107,13 +107,13 @@ sdk/
   src/tx.mjs                         signed transaction transport for Python
   src/did-near.mjs                   did:near resolver and CLI
 spec/verify/v1/                      7 cross-language conformance vectors
-main.py                              MCP server (47 tools)
-api/                                 FastAPI routers
-cli.py                               `skjold` CLI
-storage/near_repository.py           hybrid chain + body Repository adapter
-signing/near_signer.py               NEAR key/digest helpers and NodeTxSigner
-services/                            identity, credential, delegation, reputation, DID, blockchain, compliance, provenance
-tools/                               MCP tool modules (47 tools across 9 modules)
+attestix/main.py                     MCP server (47 tools; import name stays `attestix`)
+attestix/api/                        FastAPI routers
+attestix/cli.py                      `skjold` CLI
+attestix/storage/near_repository.py  hybrid chain + body Repository adapter
+attestix/signing/near_signer.py      NEAR key/digest helpers and NodeTxSigner
+attestix/services/                   identity, credential, delegation, reputation, DID, blockchain, compliance, provenance
+attestix/tools/                      MCP tool modules (47 tools across 9 modules)
 ```
 
 ### Contract modules and entry points
