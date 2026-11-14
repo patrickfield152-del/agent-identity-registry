@@ -3,6 +3,11 @@
 
 Each agent is a sub-account such as `agent1.registry.skjold.testnet` and holds one FullAccess key. `did:near:agent1.registry.skjold.testnet` resolves to one `#owner` verification method. The registry stores the agent record and the canonical UAIT digest. It also stores credential anchors, delegation records, the reputation aggregate, TEE bindings, and artifact anchors. Credentials are signed off-chain. The registry anchors only the digest. A delegation is a function-call access key on the agent account with `contract_id = registry.skjold.testnet` and `method_names = ["anchor_artifact"]`. The registry indexes that key to the UCAN `jti`. Revocation stops future calls, even if the key remains installed.
 
+**Problem.** Autonomous agents need portable, revocable identity and delegated authority that any verifier can check on-chain. skjold provides it: a DID per agent, anchored credentials, scoped function-call-key delegations with on-chain revocation, and a decayed reputation score.
+
+**Tracks:** `security`, `agents`. **License:** Apache License 2.0 (`LICENSE`, `NOTICE`, `ATTRIBUTION.md`).
+**Baseline:** tag `pre-hackathon` (commit `28b5b21`, the imported attestix tree). Diff: `git diff pre-hackathon..hackathon-submission` (see [Baseline, diff and dependencies](#baseline-diff-and-dependencies)).
+
 ```mermaid
 sequenceDiagram
     accTitle: skjold runtime flow
@@ -114,7 +119,7 @@ The script enters `contracts/registry` and runs `cargo check --target wasm32-unk
 ```bash
 (cd contracts/registry && cargo test --test test_demo -- --nocapture)
 ```
-The test starts a local `near-sandbox` and creates `registry.sandbox`, `operator.sandbox`, and `vc-issuer.registry.sandbox`. It builds and deploys the registry, then runs `node sdk/src/demo.js` against the sandbox RPC. The output holds one `DEMO_TRANSCRIPT=` line and this summary:
+No funded account, faucet, or API key is needed: the test starts a local `near-sandbox` and creates `registry.sandbox`, `operator.sandbox`, and `vc-issuer.registry.sandbox`. It builds and deploys the registry, then runs `node sdk/src/demo.js` against the sandbox RPC. The output holds one `DEMO_TRANSCRIPT=` line and this summary:
 
 ```text
 test node_demo_zero_funds ... ok
@@ -129,7 +134,17 @@ test result: ok. 1 passed; 0 failed
 
 Stdout prints the same `DEMO_TRANSCRIPT=` JSON. `evidence/DEMO-TRANSCRIPT.json` holds the reference capture. The test fails if any check fails. The sandbox tests are compiled only on Linux. Both `tests/test_basics.rs` and `tests/test_demo.rs` begin with `#![cfg(target_os = "linux")]`. On another host, `cargo test` reports zero tests for those files. Use a Linux machine or Linux guest.
 
-### 4. Run against testnet or a local node
+### 4. Offline smoke: digest a credential with the Node SDK (no chain, no keys)
+```bash
+echo '{"issuer":"did:near:vc-issuer.registry.sandbox","credentialSubject":{"id":"did:near:agent1.registry.skjold.testnet","name":"agent1"}}' | node sdk/scripts/recompute-vc-digest.mjs
+```
+Observed on Windows, node v26.13.0:
+```text
+{"digest":"Gd3XyeMIntCJYtk4xeqMXC6lw7x0HVEFNmE7T0ftVxs=","profile":"skjold-vc-digest/v1","canonical_bytes":133}
+```
+Exit 0. The digest is `Base64(SHA-256(canonical JSON minus proof/credentialStatus))`, profile `skjold-vc-digest/v1`. The same canonicalizer byte-matches vector `canon-001` in `spec/verify/v1/vectors.json` (273 canonical bytes; see `spec/verify/v1/CONFORMANCE.md`). For the full 9-step demo, use step 3.
+
+### 5. Run against testnet or a local node
 The demo does not deploy the registry or create the issuer account. Point the demo at a registry initialized with `new(operator)`. The issuer account must already exist with one FullAccess key. Run from the repository root, after `pnpm install --prod` in `sdk`:
 ```bash
 export SKJOLD_REGISTRY_ID=registry.skjold.testnet
@@ -143,7 +158,7 @@ node sdk/src/demo.js
 `SKJOLD_OPERATOR_ACCOUNT` defaults to `SKJOLD_REGISTRY_ID`, and `SKJOLD_VC_ISSUER_ACCOUNT` defaults to `vc-issuer.<SKJOLD_REGISTRY_ID>`. Set `NEAR_RPC_URL` for a local node. `NEAR_NETWORK` labels the run and defaults to `testnet`. Stderr prints step logs. Stdout prints one JSON summary with the 9 steps and verification fields. The process exits 0 only when all checks pass. The sandbox test above is the automated path. This command targets your deployed registry. Use testnet faucet funds only. This repository has no real-funds flow and no mainnet deployment. Do not target mainnet.
 
 ## Measured cost
-**`3.195 TGas` per `anchor_credential`**: total gas burnt across the transaction outcome and all receipts, identical on two fresh runs. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt`, starts a sandbox, builds and deploys the contract, runs the full lifecycle, and prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. `NUMBERS.md` holds the environment and both run logs. Reproduce with:
+**`3.195 TGas` per `anchor_credential`**: total gas burnt across the transaction outcome and all receipts, identical on two fresh runs. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt`, starts a sandbox, builds and deploys the contract, runs the full lifecycle, and prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. `NUMBERS.md` holds the environment and both run logs. On the review host the same test prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. Reproduce with:
 
 ```bash
 (cd contracts/registry && cargo test --test test_basics registry_flow_end_to_end -- --nocapture 2>&1 | grep MEASURED_ANCHOR_CREDENTIAL_TGAS)
