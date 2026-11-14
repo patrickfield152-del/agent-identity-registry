@@ -1,6 +1,6 @@
 # SUBMISSION-PREP — skjold (LOCAL DRAFT, NOT SUBMITTED)
 
-Track: `security` (spec `p0-security.md`). Deadline 2026-11-14T23:59:00Z.
+Tracks: `security`, `agents`. Deadline 2026-11-14T23:59:00Z.
 No push, no remote, no tags, no X post, no submit. Local commit only.
 
 ## Judge quickstart (do X → see Y), MEASURED on Celesto Box A
