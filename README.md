@@ -209,3 +209,7 @@ Origin: https://github.com/VibeTensor/attestix
 
 ## License
 Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
+
+## Hackathon
+
+Track: `security`. Development ends 2026-11-14T23:59:00Z (UTC).
