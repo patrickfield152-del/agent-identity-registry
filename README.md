@@ -6,21 +6,23 @@ Each agent is a sub-account such as `agent1.registry.skjold.testnet` and holds o
 ```mermaid
 %%{init: {"theme":"base","themeVariables":{"fontSize":"14px"}}}%%
 sequenceDiagram
+    accTitle: skjold runtime flow
+    accDescr: Six phases from agent registration through credential issue, anchor, verification, reputation scoring, and delegation revocation.
     autonumber
     participant M as MCP Server
     participant S as Python SDK
     participant C as Registry Contract
     participant V as Verifier
     participant T as Storage
-    rect rgb(226,238,255)
-    Note over M,C: PHASE 1 — Register agent and bind DID
+    rect rgba(226,238,255,0.20)
+    Note over M,C: PHASE 1 — Register agent with DID
     M->>S: create_did_key
     S->>C: create_agent with 17 mN deposit
     C->>C: on_agent_created funds 50 mN credit
     C-->>S: callback landed true
     Note right of C: did:near account resolves to one owner key
     end
-    rect rgb(230,247,235)
+    rect rgba(230,247,235,0.20)
     Note over M,S: PHASE 2 — Issue credential
     M->>S: issue_credential agent_id and claims
     S->>S: sign Ed25519Signature2020 proof
@@ -28,14 +30,14 @@ sequenceDiagram
     S-->>M: credential URN with proof
     Note right of S: proof covers the credential minus mutable fields
     end
-    rect rgb(255,244,214)
+    rect rgba(255,244,214,0.20)
     Note over M,C: PHASE 3 — Anchor digest
     M->>S: anchor_credential digest
     S->>C: anchor_credential
     C-->>S: anchor stored, 3.195 TGas
     Note right of C: contract stores the digest only
     end
-    rect rgb(243,232,255)
+    rect rgba(243,232,255,0.20)
     Note over V,C: PHASE 4 — Verify attestation
     V->>T: load credential body
     V->>V: canonicalize and drop proof
@@ -47,7 +49,7 @@ sequenceDiagram
     end
     Note right of V: verify checks signature, expiry, and revocation
     end
-    rect rgb(255,232,232)
+    rect rgba(255,232,232,0.20)
     Note over M,C: PHASE 5 — Score reputation
     loop each interaction
         M->>C: record_interaction
@@ -57,7 +59,7 @@ sequenceDiagram
     C-->>M: score and category breakdown
     Note right of C: 64-entry window feeds the breakdown only
     end
-    rect rgb(224,247,250)
+    rect rgba(224,247,250,0.20)
     Note over S,C: PHASE 6 — Revoke delegation
     S->>C: revoke_delegation jti
     S->>C: get_delegation jti
