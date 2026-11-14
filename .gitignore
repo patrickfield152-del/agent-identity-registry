@@ -14,6 +14,13 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Test and coverage output
+coverage/
+.coverage
+.pytest_cache/
+htmlcov/
+bench.json
+
 # Data files (generated at runtime)
 identities.json
 reputation.json
@@ -30,20 +37,37 @@ anchors.json
 *.json.tmp
 *.corrupted.*
 
+# Doc and editor temporaries
+*.md.bak
+*.md.tmp
+*.md.orig
+.~*
+
 # Logs
 *.log
 skjold_errors.log
+*.err
+evidence/*.log
 
 # Distribution and dependencies
 dist/
 build/
 node_modules/
 target/
+.next/
 
 # IDE
 .vscode/
 .idea/
 .claude/
+
+# Tool caches
+.cache/
+.turbo/
+.parcel-cache/
+*.tsbuildinfo
+.mypy_cache/
+.ruff_cache/
 
 # Cloudflare Wrangler
 .wrangler/

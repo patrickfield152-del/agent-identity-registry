@@ -132,12 +132,11 @@ node sdk/src/demo.js
 `SKJOLD_OPERATOR_ACCOUNT` defaults to `SKJOLD_REGISTRY_ID`, and `SKJOLD_VC_ISSUER_ACCOUNT` defaults to `vc-issuer.<SKJOLD_REGISTRY_ID>`. Set `NEAR_RPC_URL` for a local node. `NEAR_NETWORK` labels the run and defaults to `testnet`. Stderr prints step logs. Stdout prints one JSON summary with the 9 steps and verification fields. The process exits 0 only when all checks pass. The sandbox test above is the automated path. This command targets your deployed registry. Use testnet faucet funds only. This repository has no real-funds flow and no mainnet deployment. Do not target mainnet.
 
 ## Measured cost
-**`3.195 TGas` per `anchor_credential`**, measured as the total gas burnt across the transaction and all receipts. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt` and prints TGas with three decimals. Two fresh runs on the Celesto box `cmp_512755789ee1` returned `3.195`. Raw logs are `evidence/w4-gas.log` and `evidence/w4-gas2.log`. `NUMBERS.md` records the full environment.
+**`3.195 TGas` per `anchor_credential`**: total gas burnt across the transaction outcome and all receipts, identical on two fresh runs. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt`, starts a sandbox, builds and deploys the contract, runs the full lifecycle, and prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. This is a cost measurement, not gas income; PV≥87 removes the 30% contract gas reward. `NUMBERS.md` holds the environment and both run logs. Reproduce with:
 
 ```bash
 (cd contracts/registry && cargo test --test test_basics registry_flow_end_to_end -- --nocapture 2>&1 | grep MEASURED_ANCHOR_CREDENTIAL_TGAS)
 ```
-The marker line uses the format `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. The test starts a sandbox, builds and deploys the contract, and exercises the full lifecycle. This is a cost metric, not gas income. NEAR protocol version 87 and later (PV≥87) removes the 30% contract gas reward for `anchor_credential`.
 
 ## Storage credit
 `create_agent` funds 50 mN of prepaid anchor storage per agent in the registry `storage_credit` ledger. The grant is funded once per agent. A function-call access key cannot attach a deposit (`InvalidAccessKeyError::DepositWithFunctionCall`). A zero-deposit `anchor_artifact` call therefore debits the agent credit.
@@ -221,27 +220,16 @@ The MCP server keeps **47 tools across 9 modules**. The split is Identity 8, Age
 This project provides identity and KYA infrastructure, not a spend firewall or payments engine.
 
 ## Origin & baseline
-skjold is derived from **attestix 0.5.0** by **VibeTensor** (VIBETENSOR PRIVATE LIMITED) at commit `dcf823e` on `main` (2026-10-30). `LICENSE` keeps the Apache License 2.0. `NOTICE` and `ATTRIBUTION.md` document the origin. The Python package keeps the `attestix` module path and the `skjold` distribution name.
+skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED), baseline commit `dcf823e` on `main` (2026-10-30), under the Apache License 2.0. It keeps the Python MCP/FastAPI/CLI surface and its `Repository`/`Signer` seams, the Ed25519 canonical-JSON credential profile, the UAIT digest rules, the UCAN delegation evidence and verification logic, the `spec/verify/v1/` vectors, and the `attestix` module path. It replaces EAS/Base anchoring with registry state and NEP-297 events; setting `SKJOLD_REGISTRY_ID` switches the default adapter to hybrid chain and local-body storage.
 
-This port keeps:
-
-- The Python MCP / FastAPI / CLI service surface and its `Repository` / `Signer` seams.
-- The Ed25519 canonical-JSON credential profile, the UAIT digest rules and the UCAN delegation evidence and verification logic.
-- The conformance vectors in `spec/verify/v1/`, unchanged.
-- The Python dependency set declared in `pyproject.toml`.
-
-The port replaces EAS/Base anchoring with registry state and NEP-297 events. Setting `SKJOLD_REGISTRY_ID` switches the default adapter to hybrid chain and local-body storage. Origin: https://github.com/VibeTensor/attestix
+`LICENSE`, `NOTICE` and `ATTRIBUTION.md` carry the licence text, the origin notice and the third-party list. Origin: https://github.com/VibeTensor/attestix
 
 ## Status
-- `contracts/registry/tests/test_units.rs`: host unit tests with mocked chain context covering state, authority guards, events, and views.
-- `contracts/registry/tests/test_basics.rs`: Linux near-sandbox flow testing identity, credential, delegation, reputation, revocation, storage credit, and the `3.195 TGas` marker.
-- `contracts/registry/tests/test_demo.rs`: runs `node sdk/src/demo.js` against near-sandbox and verifies all 9 steps, callback, VC validity, credit debit, revocation refusal, and `#owner` resolution.
-- No testnet or mainnet deployment is included. Use a registry you deployed and initialized. No third-party security audit exists.
-- The Python live chain-write path is not verified against a deployed registry due to the wire mismatch under Limits.
-- Submission and demo video are human actions, not repository outputs.
-- This repository claims no prize. Neither this port nor upstream attestix was a hackathon winner.
-- This is identity and KYA infrastructure only, not a spend firewall.
+- `contracts/registry/tests/test_units.rs` covers state, authority guards, events, and views against a mocked chain context.
+- `contracts/registry/tests/test_basics.rs` runs the Linux near-sandbox flow: identity, credential, delegation, reputation, revocation, storage credit, and the `3.195 TGas` marker.
+- `contracts/registry/tests/test_demo.rs` runs `node sdk/src/demo.js` against near-sandbox and checks all 9 steps, callback, VC validity, credit debit, revocation refusal, and `#owner` resolution.
+- No testnet or mainnet deployment and no third-party security audit. The Python live chain-write path is unverified against a deployed registry (wire mismatch, see Limits).
 
 ## License
 Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
-Tracks: `security`, `agents`. Development ends 2026-11-14T23:59:00Z (UTC).
+Tracks: `security`, `agents`.
