@@ -143,7 +143,7 @@ node sdk/src/demo.js
 `SKJOLD_OPERATOR_ACCOUNT` defaults to `SKJOLD_REGISTRY_ID`, and `SKJOLD_VC_ISSUER_ACCOUNT` defaults to `vc-issuer.<SKJOLD_REGISTRY_ID>`. Set `NEAR_RPC_URL` for a local node. `NEAR_NETWORK` labels the run and defaults to `testnet`. Stderr prints step logs. Stdout prints one JSON summary with the 9 steps and verification fields. The process exits 0 only when all checks pass. The sandbox test above is the automated path. This command targets your deployed registry. Use testnet faucet funds only. This repository has no real-funds flow and no mainnet deployment. Do not target mainnet.
 
 ## Measured cost
-**`3.195 TGas` per `anchor_credential`**: total gas burnt across the transaction outcome and all receipts, identical on two fresh runs. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt`, starts a sandbox, builds and deploys the contract, runs the full lifecycle, and prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. This is a cost measurement, not gas income; PV≥87 removes the 30% contract gas reward. `NUMBERS.md` holds the environment and both run logs. Reproduce with:
+**`3.195 TGas` per `anchor_credential`**: total gas burnt across the transaction outcome and all receipts, identical on two fresh runs. `contracts/registry/tests/test_basics.rs` reads `TransactionResult::Full(r).total_gas_burnt`, starts a sandbox, builds and deploys the contract, runs the full lifecycle, and prints `MEASURED_ANCHOR_CREDENTIAL_TGAS=3.195`. `NUMBERS.md` holds the environment and both run logs. Reproduce with:
 
 ```bash
 (cd contracts/registry && cargo test --test test_basics registry_flow_end_to_end -- --nocapture 2>&1 | grep MEASURED_ANCHOR_CREDENTIAL_TGAS)
@@ -231,7 +231,7 @@ The MCP server keeps **47 tools across 9 modules**. The split is Identity 8, Age
 This project provides identity and KYA infrastructure, not a spend firewall or payments engine.
 
 ## Origin & baseline
-skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED), baseline commit `dcf823e` on `main` (2026-10-30), under the Apache License 2.0. It keeps the Python MCP/FastAPI/CLI surface and its `Repository`/`Signer` seams, the Ed25519 canonical-JSON credential profile, the UAIT digest rules, the UCAN delegation evidence and verification logic, the `spec/verify/v1/` vectors, and the `attestix` module path. It replaces EAS/Base anchoring with registry state and NEP-297 events; setting `SKJOLD_REGISTRY_ID` switches the default adapter to hybrid chain and local-body storage.
+skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED), under the Apache License 2.0. It keeps the Python MCP/FastAPI/CLI surface and its `Repository`/`Signer` seams, the Ed25519 canonical-JSON credential profile, the UAIT digest rules, the UCAN delegation evidence and verification logic, the `spec/verify/v1/` vectors, and the `attestix` module path. It replaces EAS/Base anchoring with registry state and NEP-297 events; setting `SKJOLD_REGISTRY_ID` switches the default adapter to hybrid chain and local-body storage.
 
 `LICENSE`, `NOTICE` and `ATTRIBUTION.md` carry the licence text, the origin notice and the third-party list. Origin: https://github.com/VibeTensor/attestix
 
