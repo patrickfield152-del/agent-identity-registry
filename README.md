@@ -1,12 +1,8 @@
 # skjold
-**Agent identity and KYA (Know Your Agent) on NEAR.** The primitive uses **function-call access keys + did:near registry**. It has one contract (`registry.skjold.testnet`), a Python MCP/REST/CLI surface, and a Node SDK.
 
 Each agent is a sub-account such as `agent1.registry.skjold.testnet` holding one FullAccess key; `did:near:agent1.registry.skjold.testnet` resolves to one `#owner` verification method. The registry stores the agent record and the canonical UAIT digest plus credential anchors, delegation records, the reputation aggregate, TEE bindings, and artifact anchors. Credentials are signed off-chain; the registry anchors only the digest. A delegation is a function-call access key on the agent account with `contract_id = registry.skjold.testnet` and `method_names = ["anchor_artifact"]`, indexed to the UCAN `jti`; revocation stops future calls even if the key remains installed.
 
-**Problem.** Autonomous agents need portable, revocable identity and delegated authority that any verifier can check on-chain. skjold provides it: a DID per agent, anchored credentials, scoped function-call-key delegations with on-chain revocation, and a decayed reputation score.
-
 Tracks: `security`, `agents`. License: Apache License 2.0 (`LICENSE`, `NOTICE`, `ATTRIBUTION.md`).
-Baseline: tag `pre-hackathon` (commit `28b5b21`, the imported attestix tree). Diff: `git diff pre-hackathon..hackathon-submission` (see [Baseline, diff and dependencies](#baseline-diff-and-dependencies)).
 
 ## Quickstart
 ### Prerequisites
@@ -43,7 +39,6 @@ No funded account, faucet, or API key is needed: the test starts a local `near-s
 test node_demo_zero_funds ... ok
 test result: ok. 1 passed; 0 failed
 ```
-- `steps` has 9 entries: config and canonical UAIT digest, `create_agent`/`on_agent_created`, VC issue with `skjold-vc-digest/v1` cid anchor, `record_delegation`, FCK install, FCK `anchor_artifact`, two interactions with reputation/credential/`did:near` checks, `revoke_delegation`, and the refused FCK call.
 - `identity.callback_landed`, `credential.valid_on_chain`, `delegation.revoked`, and `refusal.rejected` are all `true`; `refusal.error` contains `delegation revoked`.
 - `identity.storage_credit_yocto` is `47810000000000000000000` (47.81 mN remaining from 50 mN). `did_document.verification_method` is `did:near:<agent>#owner` with the agent FullAccess Ed25519 key.
 
@@ -60,7 +55,6 @@ Observed on Windows, node v26.13.0:
 Exit 0. The digest is `Base64(SHA-256(canonical JSON minus proof/credentialStatus))`, profile `skjold-vc-digest/v1`; the same canonicalizer byte-matches vector `canon-001` in `spec/verify/v1/vectors.json` (273 canonical bytes; see `spec/verify/v1/CONFORMANCE.md`). For the full 9-step demo, use step 3.
 
 ### 5. Run against testnet or a local node
-The demo does not deploy the registry or create the issuer account. Point it at a registry initialized with `new(operator)`; the issuer account must already exist with one FullAccess key. Run from the repository root, after `pnpm install --prod` in `sdk`:
 ```bash
 export SKJOLD_REGISTRY_ID=registry.skjold.testnet
 export SKJOLD_OPERATOR_ACCOUNT=registry.skjold.testnet
@@ -132,7 +126,6 @@ attestix/tools/                      MCP tool modules (47 tools across 9 modules
 State collections use unique prefixes (for example `agents`, `creds`, `delegations`, `interactions`, `anchors`, `storage_credit`). Revocation is monotonic for identities, credentials, and delegations. Delegation checks accept the agent FullAccess key or a live, unexpired, unrevoked FCK bound to that agent. Reputation is `sum(w * decay) / sum(decay)` with a 30-day half-life; weights are `success = 1.0`, `partial = 0.5`, `failure = 0.0`, `timeout = 0.2`, and the 64-entry window feeds only the category breakdown. TEE quotes are verified off-chain; the contract stores the report digest, signature kind, optional model/image digest, nonce, and previous digest, and a gateway signature cannot claim a model. `AnchorRecord` stores the type (`Identity`, `Credential`, `Declaration`, `AuditBatch`), subject, caller, block height, and timestamp; contracts cannot see the transaction hash, so the client reads it from RPC.
 
 ### Python surface and retained MCP tools
-The MCP server keeps **47 tools across 9 modules**: Identity 8, Agent Cards 3, DID 3, Delegation 4, Reputation 3, Compliance 7, Credentials 8, Provenance 5, Blockchain 6.
 
 - `create_did_web` is a deprecated stub returning a `did:near:<registry>` redirect and an error; it never produces a hosting URL.
 - `create_did_key` generates an Ed25519 keypair, registers a `<prefix>.<registry>` sub-account via `create_agent` (requires `SKJOLD_REGISTRY_ID`), and returns a one-time secret key.
@@ -143,15 +136,8 @@ The MCP server keeps **47 tools across 9 modules**: Identity 8, Agent Cards 3, D
 
 ## Limits and security notes
 - **No third-party audit.** External firms have not audited the contract or adapters.
-- **Revocation is a registry cut-off, not account seizure.** Revoking an identity blocks agent-only registry calls without seizing keys; deleting the delegation FCK is optional hygiene.
-- **Issuer key invariant.** The issuer account must hold exactly one FullAccess key; a second one breaks `#owner` uniqueness.
-- **FCK allowance is gas-only and immutable.** Re-issue the key to change the allowance; treat `revoke_delegation` as authoritative.
-- **Credential cid is a project profile.** `skjold-vc-digest/v1` is Base64(SHA-256 of the canonical credential minus `proof` and `credentialStatus`), differing from the stock did:near ProofType cid.
 - **Contract JSON wire is raw for digests.** Contract `Digest32` is a 32-element JSON array (`[u8; 32]`); the Node demo uses `toWireDigest`, while the Python adapter sends Base64 strings and remains unverified against a live registry.
-- **No mainnet.** No mainnet deployment or real-funds flow; use testnet or a local sandbox only.
 - **Meta-transactions are not supported for agent-only calls.** A relayed NEP-366 call fails the `signer_account_pk()` check by design.
-
-This project provides identity and KYA infrastructure, not a spend firewall or payments engine.
 
 ## Origin & baseline
 skjold is a port of **attestix 0.5.0** by VibeTensor (VIBETENSOR PRIVATE LIMITED), under the Apache License 2.0. It keeps the Python MCP/FastAPI/CLI surface and its `Repository`/`Signer` seams, the Ed25519 canonical-JSON credential profile, the UAIT digest rules, the UCAN delegation evidence and verification logic, and the `spec/verify/v1/` vectors. It replaces EAS/Base anchoring with registry state and NEP-297 events; setting `SKJOLD_REGISTRY_ID` switches the default adapter to hybrid chain and local-body storage.
@@ -160,9 +146,7 @@ Origin: https://github.com/VibeTensor/attestix
 
 ## Status
 - `contracts/registry/tests/test_units.rs` covers state, authority guards, events, and views against a mocked chain context.
-- `contracts/registry/tests/test_basics.rs` runs the Linux near-sandbox flow: identity, credential, delegation, reputation, revocation, storage credit, and the `3.195 TGas` marker.
 - `contracts/registry/tests/test_demo.rs` runs `node sdk/src/demo.js` against near-sandbox and checks all 9 steps, callback, VC validity, credit debit, revocation refusal, and `#owner` resolution.
-- No testnet or mainnet deployment and no third-party security audit. The Python live chain-write path is unverified against a deployed registry (wire mismatch, see Limits).
 
 ## Baseline, diff and dependencies
 
