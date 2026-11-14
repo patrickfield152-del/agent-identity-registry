@@ -21,14 +21,22 @@ sequenceDiagram
     Note right of C: did:near account resolves to one owner key
     end
     rect rgb(230,247,235)
-    Note over M,C: PHASE 2 — Issue credential and anchor digest
+    Note over M,S: PHASE 2 — Issue credential
+    M->>S: issue_credential agent_id and claims
+    S->>S: sign Ed25519Signature2020 proof
+    S->>T: append_credential to store
+    S-->>M: credential URN with proof
+    Note right of S: proof covers the credential minus mutable fields
+    end
+    rect rgb(255,244,214)
+    Note over M,C: PHASE 3 — Anchor digest
     M->>S: anchor_credential digest
     S->>C: anchor_credential
     C-->>S: anchor stored, 3.195 TGas
     Note right of C: contract stores the digest only
     end
-    rect rgb(255,244,214)
-    Note over V,C: PHASE 3 — Verify attestation
+    rect rgb(243,232,255)
+    Note over V,C: PHASE 4 — Verify attestation
     V->>T: load credential body
     V->>V: canonicalize and drop proof
     alt signature and window valid
@@ -39,8 +47,8 @@ sequenceDiagram
     end
     Note right of V: verify checks signature, expiry, and revocation
     end
-    rect rgb(243,232,255)
-    Note over M,C: PHASE 4 — Score reputation
+    rect rgb(255,232,232)
+    Note over M,C: PHASE 5 — Score reputation
     loop each interaction
         M->>C: record_interaction
         C->>C: apply 30-day half-life decay
@@ -49,8 +57,8 @@ sequenceDiagram
     C-->>M: score and category breakdown
     Note right of C: 64-entry window feeds the breakdown only
     end
-    rect rgb(255,232,232)
-    Note over S,C: PHASE 5 — Revoke delegation
+    rect rgb(224,247,250)
+    Note over S,C: PHASE 6 — Revoke delegation
     S->>C: revoke_delegation jti
     S->>C: get_delegation jti
     C-->>S: revoked true
