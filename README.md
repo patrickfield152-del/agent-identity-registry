@@ -251,3 +251,5 @@ Libraries, templates and AI-generated code are listed in `ATTRIBUTION.md` and `N
 ## License
 Apache License 2.0. See `LICENSE`, `NOTICE` and `ATTRIBUTION.md`.
 Tracks: `security`, `agents`.
+
+Q-015 (second project on this email): **stele** (slot NFTs with tenancy, tracks `nfts`, `realworld`).
