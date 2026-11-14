@@ -5,8 +5,8 @@ Each agent is a sub-account such as `agent1.registry.skjold.testnet` holding one
 
 **Problem.** Autonomous agents need portable, revocable identity and delegated authority that any verifier can check on-chain. skjold provides it: a DID per agent, anchored credentials, scoped function-call-key delegations with on-chain revocation, and a decayed reputation score.
 
-**Tracks:** `security`, `agents`. **License:** Apache License 2.0 (`LICENSE`, `NOTICE`, `ATTRIBUTION.md`).
-**Baseline:** tag `pre-hackathon` (commit `28b5b21`, the imported attestix tree). Diff: `git diff pre-hackathon..hackathon-submission` (see [Baseline, diff and dependencies](#baseline-diff-and-dependencies)).
+Tracks: `security`, `agents`. License: Apache License 2.0 (`LICENSE`, `NOTICE`, `ATTRIBUTION.md`).
+Baseline: tag `pre-hackathon` (commit `28b5b21`, the imported attestix tree). Diff: `git diff pre-hackathon..hackathon-submission` (see [Baseline, diff and dependencies](#baseline-diff-and-dependencies)).
 
 ## Quickstart
 ### Prerequisites
